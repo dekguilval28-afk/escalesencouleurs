@@ -40,12 +40,20 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--paper);
+    background:transparent;
     color:var(--ink);
     font-family:var(--font-body);
     line-height:1.5;
     -webkit-font-smoothing:antialiased;
   }
+  .bg-brush{
+    position:fixed;inset:0;z-index:-1;pointer-events:none;
+  }
+  .bg-brush svg{width:100%;height:100%;display:block;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .bg-brush{ filter:brightness(0.55) saturate(1.15); }
+  }
+  :root[data-theme="dark"] .bg-brush{ filter:brightness(0.55) saturate(1.15); }
   img{max-width:100%;display:block;}
   button{font-family:inherit;}
   a{color:inherit;}
