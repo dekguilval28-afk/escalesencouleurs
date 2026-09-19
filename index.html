@@ -303,6 +303,18 @@
     <textarea id="contactMessage" placeholder="Écris ton message ici..." style="min-height:80px;"></textarea>
   </div>
   <button type="button" class="btn btn-solid" id="contactSend" style="width:100%;">Envoyer</button>
+  <button type="button" class="btn-icon" id="myMessagesLink" style="width:100%;text-align:center;margin-top:8px;font-size:12.5px;">Voir / retirer mes messages envoyés</button>
+</div>
+
+<!-- Mes messages envoyés -->
+<div class="overlay" id="myMessagesOverlay">
+  <div class="modal">
+    <h2>Mes messages envoyés</h2>
+    <div id="myMessagesList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="myMessagesClose">Fermer</button>
+    </div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>

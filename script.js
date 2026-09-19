@@ -144,8 +144,11 @@ document.getElementById('contactSend').onclick = async ()=>{
     return;
   }
   try{
-    const { error } = await sb.from('messages').insert({ name: name || null, contact: contact || null, message });
+    const owner_token = crypto.randomUUID();
+    const { error } = await sb.from('messages')
+      .insert({ name: name || null, contact: contact || null, message, owner_token });
     if(error) throw error;
+    saveSentMessageLocally({ owner_token, message, created_at: new Date().toISOString() });
     toast("Message envoyé, merci !");
     document.getElementById('contactName').value = '';
     document.getElementById('contactContact').value = '';
@@ -155,6 +158,57 @@ document.getElementById('contactSend').onclick = async ()=>{
     toast("Impossible d'envoyer le message.");
   }
 };
+
+const SENT_KEY = 'sent-messages';
+function saveSentMessageLocally(row){
+  let list = [];
+  try{ list = JSON.parse(localStorage.getItem(SENT_KEY) || '[]'); }catch(e){}
+  list.unshift({ owner_token: row.owner_token, message: row.message, created_at: row.created_at });
+  try{ localStorage.setItem(SENT_KEY, JSON.stringify(list)); }catch(e){}
+}
+
+document.getElementById('myMessagesLink').onclick = ()=>{
+  document.getElementById('contactPanel').classList.remove('open');
+  renderMyMessages();
+  document.getElementById('myMessagesOverlay').classList.add('open');
+};
+document.getElementById('myMessagesClose').onclick = ()=>document.getElementById('myMessagesOverlay').classList.remove('open');
+document.getElementById('myMessagesOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'myMessagesOverlay') document.getElementById('myMessagesOverlay').classList.remove('open');
+});
+
+function renderMyMessages(){
+  const list = document.getElementById('myMessagesList');
+  let sent = [];
+  try{ sent = JSON.parse(localStorage.getItem(SENT_KEY) || '[]'); }catch(e){}
+  if(!sent.length){
+    list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucun message envoyé depuis cet appareil.</p>';
+    return;
+  }
+  list.innerHTML = '';
+  sent.forEach(m=>{
+    const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'});
+    const div = document.createElement('div');
+    div.className = 'inbox-item';
+    div.innerHTML = `<div class="when">${d}</div><div class="msg">${escapeHtml(m.message)}</div>`;
+    const rm = document.createElement('button');
+    rm.className = 'btn btn-ghost btn-small';
+    rm.style.marginTop = '8px';
+    rm.textContent = 'Retirer ce message';
+    rm.onclick = async ()=>{
+      if(!confirm("Retirer définitivement ce message ?")) return;
+      try{
+        await sb.from('messages').delete().eq('owner_token', m.owner_token);
+        let updated = sent.filter(x=>x.owner_token !== m.owner_token);
+        localStorage.setItem(SENT_KEY, JSON.stringify(updated));
+        toast("Message retiré");
+        renderMyMessages();
+      }catch(e){ toast("Impossible de retirer ce message."); }
+    };
+    div.appendChild(rm);
+    list.appendChild(div);
+  });
+}
 
 async function refreshInboxCount(){
   if(!sb || !currentUser) return;
