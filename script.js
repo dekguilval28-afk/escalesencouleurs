@@ -136,6 +136,7 @@ document.getElementById('contactBubbleBtn').onclick = ()=>{
 };
 document.getElementById('contactSend').onclick = async ()=>{
   const name = document.getElementById('contactName').value.trim();
+  const contact = document.getElementById('contactContact').value.trim();
   const message = document.getElementById('contactMessage').value.trim();
   if(!message){ toast("Écris un message d'abord"); return; }
   if(!sb){
@@ -143,10 +144,11 @@ document.getElementById('contactSend').onclick = async ()=>{
     return;
   }
   try{
-    const { error } = await sb.from('messages').insert({ name: name || null, message });
+    const { error } = await sb.from('messages').insert({ name: name || null, contact: contact || null, message });
     if(error) throw error;
     toast("Message envoyé, merci !");
     document.getElementById('contactName').value = '';
+    document.getElementById('contactContact').value = '';
     document.getElementById('contactMessage').value = '';
     document.getElementById('contactPanel').classList.remove('open');
   }catch(err){
@@ -180,7 +182,7 @@ document.getElementById('inboxBtn').onclick = async ()=>{
       const div = document.createElement('div');
       div.className = 'inbox-item';
       const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
-      div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div><div class="msg">${escapeHtml(m.message)}</div>`;
+      div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div>${m.contact ? `<div class="when">📧 ${escapeHtml(m.contact)}</div>` : ''}<div class="msg">${escapeHtml(m.message)}</div>`;
       list.appendChild(div);
     });
     await sb.from('messages').update({ read:true }).eq('read', false);
