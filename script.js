@@ -375,6 +375,7 @@ async function persistTrip(trip){
       const { error } = await sb.from('trips').insert(row);
       if(error) toast("Impossible d'enregistrer.");
     }
+    await loadSupabaseTrips();
   } else if(storageMode === "db" && dbApi){
     await dbApi.doc("trips/" + trip.id).set(trip);
   } else {
@@ -390,6 +391,7 @@ async function deleteTripById(id){
   if(storageMode === "supabase"){
     const { error } = await sb.from('trips').delete().eq('id', id);
     if(error) toast("Impossible de supprimer.");
+    await loadSupabaseTrips();
   } else if(storageMode === "db" && dbApi){
     await dbApi.doc("trips/" + id).delete();
   } else {
