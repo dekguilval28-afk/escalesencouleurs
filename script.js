@@ -24,7 +24,7 @@ function updateAuthUI(){
   const authBtn = document.getElementById('authBtn');
   const inboxBtn = document.getElementById('inboxBtn');
   if(currentUser){
-    authBtn.textContent = `${currentUser.pseudo} · Déconnexion`;
+    authBtn.textContent = `${currentUser.pseudo} · Mon compte`;
     inboxBtn.style.display = sb ? 'inline-block' : 'none';
   } else {
     authBtn.textContent = 'Connexion';
@@ -53,8 +53,8 @@ async function restoreSession(){
 
 document.getElementById('authBtn').onclick = async ()=>{
   if(currentUser){
-    await sb.auth.signOut();
-    toast("Déconnecté");
+    document.getElementById('accountPseudo').textContent = currentUser.pseudo;
+    document.getElementById('accountOverlay').classList.add('open');
     return;
   }
   if(!sb){
@@ -63,6 +63,32 @@ document.getElementById('authBtn').onclick = async ()=>{
   }
   authMode = 'login';
   openAuthModal();
+};
+
+document.getElementById('accountClose').onclick = ()=>document.getElementById('accountOverlay').classList.remove('open');
+document.getElementById('accountOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'accountOverlay') document.getElementById('accountOverlay').classList.remove('open');
+});
+document.getElementById('accountSignOut').onclick = async ()=>{
+  await sb.auth.signOut();
+  document.getElementById('accountOverlay').classList.remove('open');
+  toast("Déconnecté");
+};
+document.getElementById('accountDelete').onclick = async ()=>{
+  if(!confirm("Supprimer ton compte ? Tous les voyages que tu as ajoutés seront définitivement supprimés. Cette action est irréversible.")) return;
+  const btn = document.getElementById('accountDelete');
+  btn.disabled = true;
+  try{
+    await sb.from('trips').delete().eq('user_id', currentUser.id);
+    await loadSupabaseTrips();
+    await sb.auth.signOut();
+    document.getElementById('accountOverlay').classList.remove('open');
+    toast("Tes voyages ont été supprimés et tu es déconnecté(e).");
+  }catch(e){
+    toast("Une erreur est survenue.");
+  }finally{
+    btn.disabled = false;
+  }
 };
 
 let authMode = 'login';
@@ -237,6 +263,20 @@ document.getElementById('inboxBtn').onclick = async ()=>{
       div.className = 'inbox-item';
       const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
       div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div>${m.contact ? `<div class="when">📧 ${escapeHtml(m.contact)}</div>` : ''}<div class="msg">${escapeHtml(m.message)}</div>`;
+      const rm = document.createElement('button');
+      rm.className = 'btn btn-ghost btn-small';
+      rm.style.marginTop = '8px';
+      rm.textContent = 'Supprimer';
+      rm.onclick = async ()=>{
+        if(!confirm("Supprimer ce message ?")) return;
+        try{
+          const { error } = await sb.from('messages').delete().eq('id', m.id);
+          if(error) throw error;
+          toast("Message supprimé");
+          document.getElementById('inboxBtn').click();
+        }catch(e){ toast("Impossible de supprimer ce message."); }
+      };
+      div.appendChild(rm);
       list.appendChild(div);
     });
     await sb.from('messages').update({ read:true }).eq('read', false);
