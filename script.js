@@ -1,3 +1,199 @@
+/* ===================== Configuration Supabase =====================
+   Remplace les deux valeurs ci-dessous par celles de ton projet Supabase
+   (Project Settings > API). Tant qu'elles ne sont pas remplacées,
+   le site fonctionne en mode démo local (pas de comptes, pas de partage
+   entre appareils). */
+const SUPABASE_URL = "https://gaazttgwdbpgxlznwikq.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_7JF2hJhSzFjcCvKrhjR9zw_ss9s-edH";
+
+let sb = null;
+if(typeof window.supabase !== 'undefined' && SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20){
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+let currentUser = null; // {id, pseudo}
+
+function pseudoToEmail(pseudo){
+  const slug = pseudo.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  return `${slug || 'voyageur'}@escalesencouleurs.app`;
+}
+
+function updateAuthUI(){
+  const authBtn = document.getElementById('authBtn');
+  const inboxBtn = document.getElementById('inboxBtn');
+  if(currentUser){
+    authBtn.textContent = `${currentUser.pseudo} · Déconnexion`;
+    inboxBtn.style.display = sb ? 'inline-block' : 'none';
+  } else {
+    authBtn.textContent = 'Connexion';
+    inboxBtn.style.display = 'none';
+  }
+}
+
+async function restoreSession(){
+  if(!sb) { updateAuthUI(); return; }
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session?.user){
+    currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
+  }
+  updateAuthUI();
+  if(currentUser) refreshInboxCount();
+  sb.auth.onAuthStateChange((event, session)=>{
+    if(session?.user){
+      currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
+    } else {
+      currentUser = null;
+    }
+    updateAuthUI();
+    if(currentUser) refreshInboxCount();
+  });
+}
+
+document.getElementById('authBtn').onclick = async ()=>{
+  if(currentUser){
+    await sb.auth.signOut();
+    toast("Déconnecté");
+    return;
+  }
+  if(!sb){
+    toast("Configure Supabase d'abord pour activer les comptes.");
+    return;
+  }
+  authMode = 'login';
+  openAuthModal();
+};
+
+let authMode = 'login';
+function openAuthModal(){
+  document.getElementById('authTitle').textContent = authMode === 'login' ? "Connexion" : "Créer un compte";
+  document.getElementById('authSubmit').textContent = authMode === 'login' ? "Se connecter" : "Créer le compte";
+  document.getElementById('authToggleMode').textContent = authMode === 'login' ? "Créer un compte" : "J'ai déjà un compte";
+  document.getElementById('authError').style.display = 'none';
+  document.getElementById('authForm').reset();
+  document.getElementById('authOverlay').classList.add('open');
+}
+function closeAuthModal(){
+  document.getElementById('authOverlay').classList.remove('open');
+}
+document.getElementById('authToggleMode').onclick = ()=>{
+  authMode = authMode === 'login' ? 'signup' : 'login';
+  openAuthModal();
+};
+document.getElementById('authCancel').onclick = closeAuthModal;
+document.getElementById('authOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'authOverlay') closeAuthModal();
+});
+
+document.getElementById('authForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const pseudo = document.getElementById('authPseudo').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+  const submitBtn = document.getElementById('authSubmit');
+  submitBtn.disabled = true;
+  try{
+    const email = pseudoToEmail(pseudo);
+    if(authMode === 'signup'){
+      const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo } } });
+      if(error) throw error;
+      if(!data.session){
+        errEl.textContent = "Compte créé. Essaie de te connecter.";
+        errEl.style.display = 'block';
+        authMode = 'login';
+        openAuthModal();
+        submitBtn.disabled = false;
+        return;
+      }
+    } else {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if(error) throw error;
+    }
+    closeAuthModal();
+    toast(authMode === 'signup' ? "Bienvenue !" : "Connecté");
+  }catch(err){
+    errEl.textContent = err.message?.includes('Invalid login') ? "Pseudo ou mot de passe incorrect." : (err.message || "Une erreur est survenue.");
+    errEl.style.display = 'block';
+  }finally{
+    submitBtn.disabled = false;
+  }
+});
+
+function requireAuth(){
+  if(!sb) return true; // mode démo : pas de restriction
+  if(currentUser) return true;
+  authMode = 'login';
+  openAuthModal();
+  toast("Connecte-toi pour continuer");
+  return false;
+}
+
+/* ===================== Messages de contact ===================== */
+document.getElementById('contactBubbleBtn').onclick = ()=>{
+  document.getElementById('contactPanel').classList.toggle('open');
+};
+document.getElementById('contactSend').onclick = async ()=>{
+  const name = document.getElementById('contactName').value.trim();
+  const message = document.getElementById('contactMessage').value.trim();
+  if(!message){ toast("Écris un message d'abord"); return; }
+  if(!sb){
+    toast("La messagerie sera active une fois Supabase connecté.");
+    return;
+  }
+  try{
+    const { error } = await sb.from('messages').insert({ name: name || null, message });
+    if(error) throw error;
+    toast("Message envoyé, merci !");
+    document.getElementById('contactName').value = '';
+    document.getElementById('contactMessage').value = '';
+    document.getElementById('contactPanel').classList.remove('open');
+  }catch(err){
+    toast("Impossible d'envoyer le message.");
+  }
+};
+
+async function refreshInboxCount(){
+  if(!sb || !currentUser) return;
+  try{
+    const { count } = await sb.from('messages').select('*', { count:'exact', head:true }).eq('read', false);
+    const el = document.getElementById('inboxCount');
+    el.textContent = count ? `(${count})` : '';
+  }catch(e){}
+}
+
+document.getElementById('inboxBtn').onclick = async ()=>{
+  if(!sb || !currentUser) return;
+  const list = document.getElementById('inboxList');
+  list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
+  document.getElementById('inboxOverlay').classList.add('open');
+  try{
+    const { data, error } = await sb.from('messages').select('*').order('created_at', { ascending:false });
+    if(error) throw error;
+    if(!data.length){
+      list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucun message pour l\'instant.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(m=>{
+      const div = document.createElement('div');
+      div.className = 'inbox-item';
+      const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
+      div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div><div class="msg">${escapeHtml(m.message)}</div>`;
+      list.appendChild(div);
+    });
+    await sb.from('messages').update({ read:true }).eq('read', false);
+    refreshInboxCount();
+  }catch(err){
+    list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger les messages.</p>';
+  }
+};
+document.getElementById('inboxClose').onclick = ()=>document.getElementById('inboxOverlay').classList.remove('open');
+document.getElementById('inboxOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'inboxOverlay') document.getElementById('inboxOverlay').classList.remove('open');
+});
+
 /* ===================== Données pays ===================== */
 const COUNTRIES = [
 ["FR","France","Europe"],["DE","Allemagne","Europe"],["IT","Italie","Europe"],["ES","Espagne","Europe"],
@@ -61,9 +257,9 @@ function flagEmoji(code){
   return code.toUpperCase().replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
 }
 
-/* ===================== Stockage : db > localStorage ===================== */
+/* ===================== Stockage : Supabase > db (aperçu Claude) > localStorage ===================== */
 let dbApi = null, assetsApi = null;
-let storageMode = "local"; // "db" or "local"
+let storageMode = "local"; // "supabase" | "db" | "local"
 let trips = [];
 const LOCAL_KEY = "carnet-voyage-trips";
 
@@ -87,8 +283,41 @@ function saveLocal(){
   catch(e){ toast("Stockage plein : essaie avec moins de photos."); }
 }
 
+function rowToTrip(row){
+  return {
+    id: row.id,
+    countryCode: row.country_code,
+    country: row.country,
+    city: row.city,
+    dateStart: row.date_start,
+    dateEnd: row.date_end,
+    story: row.story,
+    photos: row.photos || [],
+    likes: row.likes || 0,
+    pseudo: row.pseudo
+  };
+}
+
+async function loadSupabaseTrips(){
+  const { data, error } = await sb.from('trips').select('*').order('date_start', { ascending:false });
+  if(error){ toast("Impossible de charger les voyages."); return; }
+  trips = (data || []).map(rowToTrip);
+  render();
+}
+
 async function initStorage(){
   const statusEl = document.getElementById('syncStatus');
+
+  if(sb){
+    storageMode = "supabase";
+    statusEl.textContent = "partagé en ligne";
+    await loadSupabaseTrips();
+    sb.channel('trips-changes')
+      .on('postgres_changes', { event:'*', schema:'public', table:'trips' }, loadSupabaseTrips)
+      .subscribe();
+    return;
+  }
+
   try{
     dbApi = await window.claude?.use?.("db");
   }catch(e){ dbApi = null; }
@@ -106,7 +335,6 @@ async function initStorage(){
         render();
       });
     }catch(e){
-      // fallback one-time read if onSnapshot unsupported in this shape
       try{
         const res = await dbApi.collection("trips").get();
         trips = (res||[]).map(d => d.data ? {id:d.id, ...d.data} : d).sort(sortTrips);
@@ -115,7 +343,7 @@ async function initStorage(){
     }
   } else {
     storageMode = "local";
-    statusEl.textContent = "";
+    statusEl.textContent = sb === null && SUPABASE_URL.startsWith('http') ? "" : "mode démo";
     loadLocal();
   }
 }
@@ -125,7 +353,27 @@ function sortTrips(a,b){
 }
 
 async function persistTrip(trip){
-  if(storageMode === "db" && dbApi){
+  if(storageMode === "supabase"){
+    const row = {
+      user_id: currentUser?.id || null,
+      pseudo: currentUser?.pseudo || 'Anonyme',
+      country_code: trip.countryCode,
+      country: trip.country,
+      city: trip.city,
+      date_start: trip.dateStart || null,
+      date_end: trip.dateEnd || null,
+      story: trip.story,
+      photos: trip.photos,
+      likes: trip.likes || 0
+    };
+    if(trip.isExisting){
+      const { error } = await sb.from('trips').update(row).eq('id', trip.id);
+      if(error) toast("Impossible d'enregistrer.");
+    } else {
+      const { error } = await sb.from('trips').insert(row);
+      if(error) toast("Impossible d'enregistrer.");
+    }
+  } else if(storageMode === "db" && dbApi){
     await dbApi.doc("trips/" + trip.id).set(trip);
   } else {
     const idx = trips.findIndex(t=>t.id===trip.id);
@@ -137,7 +385,10 @@ async function persistTrip(trip){
 }
 
 async function deleteTripById(id){
-  if(storageMode === "db" && dbApi){
+  if(storageMode === "supabase"){
+    const { error } = await sb.from('trips').delete().eq('id', id);
+    if(error) toast("Impossible de supprimer.");
+  } else if(storageMode === "db" && dbApi){
     await dbApi.doc("trips/" + id).delete();
   } else {
     trips = trips.filter(t=>t.id!==id);
@@ -207,13 +458,28 @@ function renderPreview(){
   });
 }
 
+async function uploadToSupabase(blob){
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2,8)}.jpg`;
+  const { error } = await sb.storage.from('trip-photos').upload(path, blob, { contentType:'image/jpeg' });
+  if(error) throw error;
+  const { data } = sb.storage.from('trip-photos').getPublicUrl(path);
+  return data.publicUrl;
+}
+
 async function photosToStorable(){
-  // Returns array to store on the trip: either {id} (assets) or {url} (dataURL or direct link)
+  // Returns array to store on the trip: either {id} (assets) or {url} (Supabase/dataURL/lien)
   const out = [];
   for(const p of pendingPhotos){
     if(p.isUrl){
       out.push({url: p.previewUrl});
       continue;
+    }
+    if(storageMode === "supabase"){
+      try{
+        const url = await uploadToSupabase(p.blob);
+        out.push({url});
+        continue;
+      }catch(e){ toast("Une photo n'a pas pu être envoyée."); continue; }
     }
     if(assetsApi){
       try{
@@ -309,6 +575,7 @@ function renderTripCard(trip){
       </div>
     </div>
     <p class="trip-story">${escapeHtml(trip.story||'')}</p>
+    ${trip.pseudo ? `<p style="font-size:12px;color:var(--ink-soft);margin:8px 0 0;">ajouté par ${escapeHtml(trip.pseudo)}</p>` : ''}
     <div class="photo-grid"></div>
   `;
   const grid = el.querySelector('.photo-grid');
@@ -332,15 +599,16 @@ function renderTripCard(trip){
   }
   likeBtn.onclick = ()=>{
     const alreadyLiked = !!localStorage.getItem(likedKey);
-    const updated = {...trip, likes: Math.max(0,(trip.likes||0) + (alreadyLiked ? -1 : 1))};
+    const updated = {...trip, likes: Math.max(0,(trip.likes||0) + (alreadyLiked ? -1 : 1)), isExisting: storageMode==='supabase'};
     if(alreadyLiked) localStorage.removeItem(likedKey); else localStorage.setItem(likedKey, '1');
     persistTrip(updated);
   };
   el.querySelector('[data-act="share"]').onclick = ()=>shareContent(
     `Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`
   );
-  el.querySelector('[data-act="edit"]').onclick = ()=>openEditModal(trip);
+  el.querySelector('[data-act="edit"]').onclick = ()=>{ if(requireAuth()) openEditModal(trip); };
   el.querySelector('[data-act="del"]').onclick = ()=>{
+    if(!requireAuth()) return;
     if(confirm(`Supprimer l'étape « ${countryName} » ?`)){
       deleteTripById(trip.id);
       toast("Étape supprimée");
@@ -411,7 +679,7 @@ function closeModal(){
   pendingPhotos = [];
 }
 
-document.getElementById('openAdd').onclick = openAddModal;
+document.getElementById('openAdd').onclick = ()=>{ if(requireAuth()) openAddModal(); };
 
 /* ===================== Partage ===================== */
 function shareContent(text){
@@ -475,6 +743,7 @@ form.addEventListener('submit', async (e)=>{
     const existing = overlay._existingPhotos || [];
     const trip = {
       id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2,7)),
+      isExisting: !!editingId,
       countryCode,
       country: (COUNTRY_MAP[countryCode]||[])[1] || '',
       city: document.getElementById('cityInput').value.trim(),
@@ -534,4 +803,5 @@ document.addEventListener('keydown', e=>{
 
 /* ===================== Init ===================== */
 populateCountrySelect();
+restoreSession();
 initStorage();

@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -38,6 +39,8 @@
       <div class="brand-title" id="siteTitle" contenteditable="true" spellcheck="false">Escales en couleurs</div>
     </div>
     <div class="nav-actions">
+      <button class="btn btn-ghost btn-small" id="inboxBtn" title="Messages" style="display:none;">✉️ <span id="inboxCount" class="like-count"></span></button>
+      <button class="btn btn-ghost btn-small" id="authBtn">Connexion</button>
       <button class="btn btn-ghost btn-small" id="shareSiteBtn" title="Partager le carnet">↗ Partager</button>
       <button class="btn btn-solid" id="openAdd">+ Ajouter un voyage</button>
     </div>
@@ -245,6 +248,57 @@
   <button class="lightbox-nav prev" id="lbPrev">&#8249;</button>
   <img id="lbImg" src="" alt="">
   <button class="lightbox-nav next" id="lbNext">&#8250;</button>
+</div>
+
+<!-- Auth modal -->
+<div class="overlay" id="authOverlay">
+  <div class="modal">
+    <h2 id="authTitle">Connexion</h2>
+    <form id="authForm">
+      <div class="field">
+        <label for="authPseudo">Nom ou pseudo</label>
+        <input type="text" id="authPseudo" required autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="authPassword">Mot de passe</label>
+        <input type="password" id="authPassword" required minlength="6" autocomplete="current-password">
+      </div>
+      <p id="authError" style="color:var(--stamp);font-size:13.5px;display:none;"></p>
+      <div class="modal-actions" style="justify-content:space-between;align-items:center;">
+        <button type="button" class="btn-icon" id="authToggleMode" style="font-size:13px;">Créer un compte</button>
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="btn btn-ghost" id="authCancel">Annuler</button>
+          <button type="submit" class="btn btn-solid" id="authSubmit">Se connecter</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Messages reçus -->
+<div class="overlay" id="inboxOverlay">
+  <div class="modal">
+    <h2>Messages reçus</h2>
+    <div id="inboxList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="inboxClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulle de contact -->
+<button class="contact-bubble" id="contactBubbleBtn" title="Laisser un message">💬</button>
+<div class="contact-panel" id="contactPanel">
+  <h3>Laisser un message</h3>
+  <div class="field">
+    <label for="contactName">Ton nom (facultatif)</label>
+    <input type="text" id="contactName" placeholder="Ton prénom">
+  </div>
+  <div class="field">
+    <label for="contactMessage">Message</label>
+    <textarea id="contactMessage" placeholder="Écris ton message ici..." style="min-height:80px;"></textarea>
+  </div>
+  <button type="button" class="btn btn-solid" id="contactSend" style="width:100%;">Envoyer</button>
 </div>
 
 <div class="toast" id="toast"></div>
