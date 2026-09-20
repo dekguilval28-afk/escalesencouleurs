@@ -13,6 +13,15 @@ if(typeof window.supabase !== 'undefined' && SUPABASE_URL.startsWith('http') && 
 
 let currentUser = null; // {id, pseudo}
 
+async function refreshMemberCount(){
+  if(!sb) return;
+  try{
+    const { count } = await sb.from('profiles').select('*', { count:'exact', head:true });
+    const el = document.getElementById('accountMemberCount');
+    if(el) el.textContent = count ?? 0;
+  }catch(e){}
+}
+
 function pseudoToEmail(pseudo){
   const slug = pseudo.trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
@@ -34,6 +43,7 @@ function updateAuthUI(){
 
 async function restoreSession(){
   if(!sb) { updateAuthUI(); return; }
+  refreshMemberCount();
   const { data:{ session } } = await sb.auth.getSession();
   if(session?.user){
     currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
@@ -55,6 +65,7 @@ document.getElementById('authBtn').onclick = async ()=>{
   if(currentUser){
     document.getElementById('accountPseudo').textContent = currentUser.pseudo;
     document.getElementById('accountOverlay').classList.add('open');
+    refreshMemberCount();
     return;
   }
   if(!sb){
@@ -139,6 +150,7 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
     }
     closeAuthModal();
     toast(authMode === 'signup' ? "Bienvenue !" : "Connecté");
+    refreshMemberCount();
   }catch(err){
     errEl.textContent = err.message?.includes('Invalid login') ? "Pseudo ou mot de passe incorrect." : (err.message || "Une erreur est survenue.");
     errEl.style.display = 'block';
@@ -625,7 +637,6 @@ function render(){
   document.getElementById('statCountries').textContent = countries.size;
   document.getElementById('statTrips').textContent = trips.length;
   document.getElementById('statPhotos').textContent = trips.reduce((n,t)=>n+(t.photos?t.photos.length:0),0);
-  document.getElementById('statLikes').textContent = trips.reduce((n,t)=>n+(t.likes||0),0);
 
   if(trips.length===0){
     tl.innerHTML = `<div class="empty-state">
@@ -804,6 +815,11 @@ document.getElementById('shareMenu').addEventListener('click', (e)=>{
   if(net==='whatsapp') window.open(`https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`, '_blank');
   if(net==='facebook') window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
   if(net==='x') window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
+  if(net==='instagram' || net==='tiktok'){
+    navigator.clipboard?.writeText(`${text} ${url}`).then(()=>{
+      toast("Lien copié — colle-le dans " + (net==='instagram' ? "ta story ou bio Instagram" : "ta bio ou légende TikTok"));
+    }).catch(()=>toast("Impossible de copier le lien"));
+  }
   if(net==='copy'){
     navigator.clipboard?.writeText(url).then(()=>toast("Lien copié")).catch(()=>toast("Impossible de copier le lien"));
   }
