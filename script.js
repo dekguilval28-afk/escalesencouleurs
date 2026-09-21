@@ -58,6 +58,7 @@ async function restoreSession(){
     }
     updateAuthUI();
     if(currentUser) refreshInboxCount();
+    if(storageMode === 'supabase') render();
   });
 }
 
@@ -394,6 +395,7 @@ function saveLocal(){
 function rowToTrip(row){
   return {
     id: row.id,
+    userId: row.user_id,
     countryCode: row.country_code,
     country: row.country,
     city: row.city,
@@ -678,8 +680,7 @@ function renderTripCard(trip){
         <div class="trip-actions">
           <button class="btn-icon" title="J'aime" data-act="like">♡ <span class="like-count">${trip.likes||0}</span></button>
           <button class="btn-icon" title="Partager cette étape" data-act="share">↗</button>
-          <button class="btn-icon" title="Modifier" data-act="edit">✎</button>
-          <button class="btn-icon" title="Supprimer" data-act="del">🗑</button>
+          ${canEditTrip(trip) ? `<button class="btn-icon" title="Modifier" data-act="edit">✎</button><button class="btn-icon" title="Supprimer" data-act="del">🗑</button>` : ''}
         </div>
       </div>
     </div>
@@ -715,15 +716,20 @@ function renderTripCard(trip){
   el.querySelector('[data-act="share"]').onclick = ()=>shareContent(
     `Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`
   );
-  el.querySelector('[data-act="edit"]').onclick = ()=>{ if(requireAuth()) openEditModal(trip); };
-  el.querySelector('[data-act="del"]').onclick = ()=>{
+  el.querySelector('[data-act="edit"]')?.addEventListener('click', ()=>{ if(requireAuth()) openEditModal(trip); });
+  el.querySelector('[data-act="del"]')?.addEventListener('click', ()=>{
     if(!requireAuth()) return;
     if(confirm(`Supprimer l'étape « ${countryName} » ?`)){
       deleteTripById(trip.id);
       toast("Étape supprimée");
     }
-  };
+  });
   return el;
+}
+
+function canEditTrip(trip){
+  if(storageMode !== 'supabase') return true; // mode démo/aperçu : pas de restriction
+  return !!(currentUser && trip.userId && currentUser.id === trip.userId);
 }
 
 function escapeHtml(str){
