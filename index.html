@@ -187,15 +187,22 @@
 
     <p class="lede" id="siteLede" contenteditable="true" spellcheck="false">Un endroit pour retrouver chaque pays traversé, chaque étape, et les photos qui vont avec.</p>
 
-    <p class="stats-label">Statistiques</p>
-    <div class="stats">
-      <div class="stamp"><b id="statCountries">0</b><span>pays visités</span></div>
-      <div class="stamp"><b id="statTrips">0</b><span>étapes</span></div>
-      <div class="stamp"><b id="statPhotos">0</b><span>photos</span></div>
+    <div class="gate-prompt" id="gatePrompt">
+      <p>Connecte-toi ou crée un compte pour découvrir les voyages 🧭</p>
+      <button class="btn btn-solid" id="gateLoginBtn">Connexion / Créer un compte</button>
+    </div>
+
+    <div id="gatedContent" style="display:none;">
+      <p class="stats-label">Statistiques</p>
+      <div class="stats">
+        <div class="stamp"><b id="statCountries">0</b><span>pays visités</span></div>
+        <div class="stamp"><b id="statTrips">0</b><span>étapes</span></div>
+        <div class="stamp"><b id="statPhotos">0</b><span>photos</span></div>
+      </div>
     </div>
   </section>
 
-  <section class="timeline-section">
+  <section class="timeline-section" id="timelineSection" style="display:none;">
     <div class="section-head">
       <h2>Le fil du voyage</h2>
       <div style="display:flex;align-items:center;gap:12px;">
