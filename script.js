@@ -29,6 +29,17 @@ function pseudoToEmail(pseudo){
   return `${slug || 'voyageur'}@escalesencouleurs.app`;
 }
 
+function updateContentGate(){
+  const showContent = !sb || !!currentUser; // mode démo (sans Supabase) : toujours visible
+  document.getElementById('gatePrompt').style.display = showContent ? 'none' : 'block';
+  document.getElementById('gatedContent').style.display = showContent ? 'block' : 'none';
+  document.getElementById('timelineSection').style.display = showContent ? 'block' : 'none';
+}
+document.getElementById('gateLoginBtn').onclick = ()=>{
+  authMode = 'login';
+  openAuthModal();
+};
+
 function updateAuthUI(){
   const authBtn = document.getElementById('authBtn');
   const inboxBtn = document.getElementById('inboxBtn');
@@ -39,6 +50,7 @@ function updateAuthUI(){
     authBtn.textContent = 'Connexion';
     inboxBtn.style.display = 'none';
   }
+  updateContentGate();
 }
 
 async function restoreSession(){
@@ -106,17 +118,20 @@ document.getElementById('accountSignOut').onclick = async ()=>{
   toast("Déconnecté");
 };
 document.getElementById('accountDelete').onclick = async ()=>{
-  if(!confirm("Supprimer ton compte ? Tous les voyages que tu as ajoutés seront définitivement supprimés. Cette action est irréversible.")) return;
+  if(!confirm("Supprimer définitivement ton compte ? Tes voyages seront supprimés et ton compte ne pourra plus jamais être utilisé pour te reconnecter. Cette action est irréversible.")) return;
   const btn = document.getElementById('accountDelete');
   btn.disabled = true;
   try{
-    await sb.from('trips').delete().eq('user_id', currentUser.id);
+    const { error } = await sb.functions.invoke('delete-account');
+    if(error) throw error;
+    currentUser = null;
+    try{ await sb.auth.signOut(); }catch(e){}
+    updateAuthUI();
     await loadSupabaseTrips();
-    await sb.auth.signOut();
     document.getElementById('accountOverlay').classList.remove('open');
-    toast("Tes voyages ont été supprimés et tu es déconnecté(e).");
+    toast("Ton compte a été définitivement supprimé.");
   }catch(e){
-    toast("Une erreur est survenue.");
+    toast("Une erreur est survenue lors de la suppression du compte.");
   }finally{
     btn.disabled = false;
   }
@@ -1127,6 +1142,7 @@ document.addEventListener('keydown', e=>{
 populateCountrySelect();
 restoreSession();
 initStorage();
+
 
 
 
