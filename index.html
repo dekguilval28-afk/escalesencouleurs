@@ -1,4 +1,363 @@
- <div class="field">
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Escales en couleurs</title>
+<meta name="google-site-verification" content="HeYp3BScs_gdhFIijPlzAyxSITn1nOIQoRBq9El9BT4" />
+<meta name="description" content="Escales en couleurs, notre carnet de voyage en ligne : les pays traversés, les étapes, les photos souvenirs. Créez votre compte pour ajouter et partager vos propres voyages.">
+<meta property="og:title" content="Escales en couleurs">
+<meta property="og:description" content="Notre carnet de voyage en ligne : les pays traversés, les étapes, les photos souvenirs.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://voyages.escalesencouleurs.com">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Escales en couleurs">
+<meta name="twitter:description" content="Notre carnet de voyage en ligne : les pays traversés, les étapes, les photos souvenirs.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="bg-brush" aria-hidden="true">
+  <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <filter id="brushBlur" x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="5"/>
+      </filter>
+    </defs>
+    <rect x="0" y="0" width="1600" height="900" fill="#fbf7ec"/>
+    <g fill="none" stroke-linecap="round" filter="url(#brushBlur)" opacity="0.55">
+      <path d="M-100,120 C300,20 620,290 1000,110 C1320,-30 1560,120 1780,50" stroke="#e05a4e" stroke-width="150"/>
+      <path d="M-100,270 C320,190 650,420 1010,250 C1330,110 1560,270 1780,200" stroke="#f0964a" stroke-width="140"/>
+      <path d="M-100,410 C320,350 640,560 990,380 C1310,230 1560,410 1780,340" stroke="#f2c94c" stroke-width="130"/>
+      <path d="M-100,540 C320,480 650,690 1010,520 C1330,370 1560,540 1780,470" stroke="#6fae6e" stroke-width="130"/>
+      <path d="M-100,660 C320,600 660,810 1010,650 C1340,510 1560,660 1780,600" stroke="#4a8fa8" stroke-width="125"/>
+      <path d="M-100,770 C320,730 660,910 1020,770 C1340,650 1560,770 1780,730" stroke="#5a6bb0" stroke-width="115"/>
+      <path d="M-100,870 C320,840 660,1000 1020,870 C1340,770 1560,870 1780,840" stroke="#8a5ba8" stroke-width="105"/>
+    </g>
+  </svg>
+</div>
+
+<header class="site">
+  <div class="wrap site-row">
+    <div class="brand">
+      <div class="brand-mark">🧭</div>
+      <div class="brand-title" id="siteTitle" contenteditable="true" spellcheck="false">Escales en couleurs</div>
+    </div>
+    <div class="nav-actions">
+      <button class="btn btn-ghost btn-small" id="shareReqBtn" title="Demandes de partage" style="display:none;">🔔 <span id="shareReqCount" class="like-count"></span></button>
+      <button class="btn btn-ghost btn-small" id="inboxBtn" title="Messages" style="display:none;">✉️ <span id="inboxCount" class="like-count"></span></button>
+      <button class="btn btn-ghost btn-small" id="authBtn">Connexion</button>
+      <button class="btn btn-ghost btn-small" id="shareSiteBtn" title="Partager le carnet">↗ Partager</button>
+      <button class="btn btn-solid" id="openAdd">+ Ajouter un voyage</button>
+    </div>
+  </div>
+
+  <div class="share-menu" id="shareMenu">
+    <button data-net="whatsapp">WhatsApp</button>
+    <button data-net="facebook">Facebook</button>
+    <button data-net="x">X / Twitter</button>
+    <button data-net="instagram">Instagram</button>
+    <button data-net="tiktok">TikTok</button>
+    <button data-net="copy">Copier le lien</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="hero-visual">
+      <svg viewBox="0 0 1600 700" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Illustration d'un fourgon aménagé sur une route de montagne au coucher du soleil">
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#233255"/>
+            <stop offset="42%" stop-color="#9d5b7c"/>
+            <stop offset="72%" stop-color="#e8834f"/>
+            <stop offset="100%" stop-color="#f7c56d"/>
+          </linearGradient>
+          <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#fff3cf" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#fff3cf" stop-opacity="0"/>
+          </radialGradient>
+          <clipPath id="vanBody">
+            <path d="M18,148 L18,86 C18,58 38,38 68,33 L198,33 C224,33 244,52 249,78 L254,118 C254,136 244,148 224,148 Z"/>
+          </clipPath>
+        </defs>
+
+        <!-- ciel -->
+        <rect x="0" y="0" width="1600" height="700" fill="url(#skyGrad)"/>
+        <circle cx="1180" cy="250" r="170" fill="url(#sunGlow)"/>
+        <circle cx="1180" cy="250" r="78" fill="#fff2c9"/>
+
+        <!-- oiseaux -->
+        <path d="M300,150 q10,-14 20,0 q10,-14 20,0" fill="none" stroke="#3a2c3f" stroke-width="3" stroke-linecap="round"/>
+        <path d="M355,128 q9,-12 18,0 q9,-12 18,0" fill="none" stroke="#3a2c3f" stroke-width="3" stroke-linecap="round"/>
+        <path d="M1330,190 q9,-12 18,0 q9,-12 18,0" fill="none" stroke="#4a3350" stroke-width="3" stroke-linecap="round"/>
+
+        <!-- montagnes lointaines -->
+        <polygon points="0,420 90,290 180,360 260,240 340,330 430,260 520,350 610,300 700,380 800,320 900,400 1000,340 1100,410 1200,360 1300,420 1400,380 1500,420 1600,400 1600,700 0,700" fill="#6a5a7a" opacity="0.85"/>
+
+        <!-- montagnes intermédiaires + neige -->
+        <polygon points="0,470 70,340 150,430 240,300 330,420 420,330 500,440 590,360 680,450 770,370 860,460 950,380 1040,470 1130,400 1220,460 1300,410 1400,460 1500,420 1600,460 1600,700 0,700" fill="#4a3f5e"/>
+        <polygon points="225,308 240,300 255,308 246,326 234,326" fill="#f4ede0" opacity="0.9"/>
+        <polygon points="935,388 950,380 965,388 956,404 944,404" fill="#f4ede0" opacity="0.9"/>
+        <polygon points="1485,428 1500,420 1515,428 1506,444 1494,444" fill="#f4ede0" opacity="0.9"/>
+
+        <!-- montagnes proches, silhouette + neige -->
+        <polygon points="0,520 100,360 210,480 320,330 430,500 540,350 650,510 760,340 870,500 980,360 1090,510 1200,370 1310,500 1420,380 1520,500 1600,440 1600,700 0,700" fill="#2b2640"/>
+        <polygon points="305,318 320,330 336,338 322,352 300,344" fill="#efe6d4" opacity="0.92"/>
+        <polygon points="745,328 760,340 776,348 762,362 740,354" fill="#efe6d4" opacity="0.92"/>
+        <polygon points="965,348 980,360 996,368 982,382 960,374" fill="#efe6d4" opacity="0.92"/>
+        <polygon points="1405,368 1420,380 1436,388 1422,402 1400,394" fill="#efe6d4" opacity="0.92"/>
+
+        <!-- sapins -->
+        <g fill="#26362c">
+          <polygon points="60,560 90,500 120,560"/>
+          <polygon points="70,540 90,485 110,540"/>
+          <rect x="85" y="558" width="10" height="16"/>
+          <polygon points="1495,548 1525,488 1555,548"/>
+          <polygon points="1505,528 1525,474 1545,528"/>
+          <rect x="1520" y="546" width="10" height="16"/>
+        </g>
+
+        <!-- colline -->
+        <path d="M0,600 C300,558 500,624 800,582 C1050,552 1300,612 1600,568 L1600,700 L0,700 Z" fill="#5f7a63"/>
+        <path d="M0,616 C300,580 520,636 800,600 C1060,570 1310,624 1600,588 L1600,700 L0,700 Z" fill="#516b56" opacity="0.65"/>
+
+        <!-- route -->
+        <path d="M520,700 L760,700 L900,562 L800,556 Z" fill="#4a4640"/>
+        <g fill="#f2e9d8" opacity="0.85">
+          <rect x="640" y="672" width="16" height="24" transform="rotate(-4 648 684)"/>
+          <rect x="700" y="628" width="13" height="20" transform="rotate(-6 706 638)"/>
+          <rect x="748" y="596" width="10" height="16" transform="rotate(-8 753 604)"/>
+          <rect x="782" y="572" width="7" height="12" transform="rotate(-10 785 578)"/>
+        </g>
+
+        <!-- fourgon aménagé -->
+        <g transform="translate(430,462)">
+          <ellipse cx="140" cy="164" rx="118" ry="13" fill="#1c1710" opacity="0.28"/>
+
+          <!-- toit relevable -->
+          <rect x="62" y="6" width="100" height="30" rx="10" fill="#efe6d4"/>
+          <rect x="72" y="14" width="34" height="14" rx="4" fill="#bfe0e6" stroke="#2c3440" stroke-width="1.5"/>
+          <rect x="70" y="2" width="96" height="6" rx="3" fill="#8a6a45"/>
+          <g transform="rotate(-18 178 14)">
+            <rect x="150" y="4" width="58" height="13" rx="6" fill="#3f7a72"/>
+            <rect x="150" y="4" width="19" height="13" fill="#e8834f"/>
+          </g>
+
+          <!-- carrosserie -->
+          <path d="M18,148 L18,86 C18,58 38,38 68,33 L198,33 C224,33 244,52 249,78 L254,118 C254,136 244,148 224,148 Z" fill="#f2e9d8" stroke="#2c2740" stroke-width="2"/>
+          <rect x="10" y="108" width="252" height="26" clip-path="url(#vanBody)" fill="#3f7a72"/>
+          <rect x="10" y="128" width="252" height="6" clip-path="url(#vanBody)" fill="#e8834f"/>
+
+          <!-- vitres -->
+          <path d="M70,42 L118,40 L118,78 L66,80 Z" fill="#bfe0e6" stroke="#2c2740" stroke-width="2"/>
+          <path d="M126,40 L192,40 C210,40 224,54 228,72 L228,80 L126,80 Z" fill="#bfe0e6" stroke="#2c2740" stroke-width="2"/>
+          <path d="M150,52 L150,68" stroke="#dff0f2" stroke-width="3" opacity="0.7"/>
+
+          <!-- portière -->
+          <line x1="122" y1="40" x2="122" y2="146" stroke="#2c2740" stroke-width="1.5" opacity="0.6"/>
+          <circle cx="112" cy="98" r="2.6" fill="#2c2740"/>
+
+          <!-- rétroviseur -->
+          <path d="M62,52 C50,50 44,56 46,64" stroke="#2c2740" stroke-width="2.5" fill="none"/>
+          <circle cx="45" cy="65" r="4.5" fill="#2c2740"/>
+
+          <!-- phare + pare-choc -->
+          <circle cx="246" cy="102" r="7" fill="#ffd76b" stroke="#a8742f" stroke-width="1.5"/>
+          <rect x="16" y="140" width="240" height="10" rx="4" fill="#39352f"/>
+
+          <!-- roues -->
+          <circle cx="70" cy="150" r="23" fill="#221f1f"/>
+          <circle cx="70" cy="150" r="9" fill="#9a968c"/>
+          <circle cx="205" cy="150" r="23" fill="#221f1f"/>
+          <circle cx="205" cy="150" r="9" fill="#9a968c"/>
+        </g>
+      </svg>
+      <div class="hero-scrim"></div>
+      <div class="hero-overlay">
+        <p class="hero-tag">carnet de voyage</p>
+        <h1 id="siteHeadline" contenteditable="true" spellcheck="false">Escales en couleurs</h1>
+        <a class="domain-badge" href="https://escalesencouleurs.com" target="_blank" rel="noopener">escalesencouleurs.com</a>
+      </div>
+    </div>
+
+    <p class="lede" id="siteLede" contenteditable="true" spellcheck="false">Un endroit pour retrouver chaque pays traversé, chaque étape, et les photos qui vont avec.</p>
+
+    <p class="stats-label">Statistiques</p>
+    <div class="stats">
+      <div class="stamp"><b id="statCountries">0</b><span>pays visités</span></div>
+      <div class="stamp"><b id="statTrips">0</b><span>étapes</span></div>
+      <div class="stamp"><b id="statPhotos">0</b><span>photos</span></div>
+    </div>
+  </section>
+
+  <section class="timeline-section">
+    <div class="section-head">
+      <h2>Le fil du voyage</h2>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-ghost btn-small" id="selectModeBtn">☑ Sélectionner</button>
+        <span class="count-pill" id="syncStatus"></span>
+      </div>
+    </div>
+    <div id="timeline"></div>
+  </section>
+</main>
+
+<footer></footer>
+
+<!-- Add/edit trip modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitle">Ajouter une étape</h2>
+    <form id="tripForm">
+      <div class="field">
+        <label for="countrySelect">Pays (tu peux en choisir plusieurs)</label>
+        <select id="countrySelect" required multiple size="7"></select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="cityInput">Ville / région</label>
+          <input type="text" id="cityInput" placeholder="ex. Kyoto">
+        </div>
+        <div class="field">
+          <label for="dateStart">Dates</label>
+          <input type="date" id="dateStart">
+        </div>
+      </div>
+      <div class="field">
+        <label for="dateEnd">Jusqu'au (facultatif)</label>
+        <input type="date" id="dateEnd">
+      </div>
+      <div class="field">
+        <label for="storyInput">Souvenir</label>
+        <textarea id="storyInput" placeholder="Ce qu'on a fait, aimé, mangé, croisé..."></textarea>
+      </div>
+      <div class="field">
+        <label>Photos</label>
+        <label class="upload-box" for="fileInput" id="uploadBox">
+          Cliquer pour ajouter des photos
+          <input type="file" id="fileInput" accept="image/*" multiple style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+        </label>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input type="url" id="photoUrlInput" placeholder="ou colle un lien de photo (https://...)" style="flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:5px;background:var(--paper);color:var(--ink);font-size:13.5px;">
+          <button type="button" class="btn btn-ghost btn-small" id="addPhotoUrl">Ajouter</button>
+        </div>
+        <div class="upload-preview" id="uploadPreview"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="cancelModal">Annuler</button>
+        <button type="submit" class="btn btn-solid" id="saveTrip">Enregistrer l'étape</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lbClose">&times;</button>
+  <button class="lightbox-nav prev" id="lbPrev">&#8249;</button>
+  <img id="lbImg" src="" alt="">
+  <button class="lightbox-nav next" id="lbNext">&#8250;</button>
+</div>
+
+<!-- Auth modal -->
+<div class="overlay" id="authOverlay">
+  <div class="modal">
+    <h2 id="authTitle">Connexion</h2>
+    <form id="authForm">
+      <div class="field" id="authPseudoField">
+        <label for="authPseudo">Nom ou pseudo</label>
+        <input type="text" id="authPseudo" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="authEmail">Email</label>
+        <input type="email" id="authEmail" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="authPassword">Mot de passe</label>
+        <input type="password" id="authPassword" required minlength="6" autocomplete="current-password">
+      </div>
+      <p id="authError" style="color:var(--stamp);font-size:13.5px;display:none;"></p>
+      <button type="button" class="btn-icon" id="authForgotPassword" style="font-size:12.5px;padding:0 0 10px;display:block;">Mot de passe oublié ?</button>
+      <div class="modal-actions" style="justify-content:space-between;align-items:center;">
+        <button type="button" class="btn-icon" id="authToggleMode" style="font-size:13px;">Créer un compte</button>
+        <div style="display:flex;gap:10px;">
+          <button type="button" class="btn btn-ghost" id="authCancel">Annuler</button>
+          <button type="submit" class="btn btn-solid" id="authSubmit">Se connecter</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Nouveau mot de passe (après clic sur le lien reçu par email) -->
+<div class="overlay" id="newPasswordOverlay">
+  <div class="modal">
+    <h2>Choisis un nouveau mot de passe</h2>
+    <form id="newPasswordForm">
+      <div class="field">
+        <label for="newPasswordInput">Nouveau mot de passe</label>
+        <input type="password" id="newPasswordInput" required minlength="6" autocomplete="new-password">
+      </div>
+      <p id="newPasswordError" style="color:var(--stamp);font-size:13.5px;display:none;"></p>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-solid">Enregistrer le nouveau mot de passe</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Mon compte -->
+<div class="overlay" id="accountOverlay">
+  <div class="modal">
+    <h2>Mon compte</h2>
+    <p style="font-size:14.5px;color:var(--ink-soft);margin:0 0 18px;">Connecté(e) en tant que <b id="accountPseudo" style="color:var(--ink);"></b></p>
+    <p style="font-size:14.5px;color:var(--ink-soft);margin:0 0 18px;"><span id="accountMemberCount">0</span> membre(s) inscrit(s) sur le site</p>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button type="button" class="btn btn-ghost" id="accountSignOut">Se déconnecter</button>
+      <button type="button" class="btn" id="accountDelete" style="border-color:var(--stamp);color:var(--stamp);">Supprimer mon compte</button>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="accountClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Demandes de partage -->
+<div class="overlay" id="shareReqOverlay">
+  <div class="modal">
+    <h2>Demandes de partage</h2>
+    <div id="shareReqList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="shareReqClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Messages reçus -->
+<div class="overlay" id="inboxOverlay">
+  <div class="modal">
+    <h2>Messages reçus</h2>
+    <div id="inboxList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="inboxClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulle de contact -->
+<button class="contact-bubble" id="contactBubbleBtn" title="Laisser un message">💬</button>
+<div class="contact-panel" id="contactPanel">
+  <h3>Laisser un message</h3>
+  <div class="field">
+    <label for="contactName">Ton nom (facultatif)</label>
+    <input type="text" id="contactName" placeholder="Ton prénom">
+  </div>
+  <div class="field">
     <label for="contactContact">Email ou téléphone (facultatif, pour qu'on te réponde)</label>
     <input type="text" id="contactContact" placeholder="ton-email@exemple.com">
   </div>
