@@ -696,7 +696,7 @@ function renderTripCard(trip){
     allPhotosFlat.push(url);
     const b = document.createElement('button');
     b.type = 'button';
-    b.innerHTML = `<img src="${url}" loading="lazy" alt="">`;
+    b.innerHTML = `<img src="${url}" loading="lazy" alt="" draggable="false">`;
     b.onclick = ()=>openLightbox(globalIndex);
     grid.appendChild(b);
   });
@@ -713,9 +713,10 @@ function renderTripCard(trip){
     if(alreadyLiked) localStorage.removeItem(likedKey); else localStorage.setItem(likedKey, '1');
     persistTrip(updated);
   };
-  el.querySelector('[data-act="share"]').onclick = ()=>shareContent(
-    `Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`
-  );
+  el.querySelector('[data-act="share"]').onclick = ()=>{
+    if(!requireAuth()) return;
+    shareContent(`Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`);
+  };
   el.querySelector('[data-act="edit"]')?.addEventListener('click', ()=>{ if(requireAuth()) openEditModal(trip); });
   el.querySelector('[data-act="del"]')?.addEventListener('click', ()=>{
     if(!requireAuth()) return;
@@ -810,6 +811,7 @@ let pendingShareText = "Escales en couleurs — notre carnet de voyage";
 
 document.getElementById('shareSiteBtn').onclick = (e)=>{
   e.stopPropagation();
+  if(!requireAuth()) return;
   shareContent("Escales en couleurs — notre carnet de voyage");
 };
 document.getElementById('shareMenu').addEventListener('click', (e)=>{
@@ -884,12 +886,20 @@ form.addEventListener('submit', async (e)=>{
   }
 });
 
+document.addEventListener('contextmenu', (e)=>{
+  if(e.target.tagName === 'IMG' && (e.target.closest('.photo-grid') || e.target.closest('.lightbox'))){
+    e.preventDefault();
+  }
+});
+
 /* ===================== Lightbox ===================== */
 const lightbox = document.getElementById('lightbox');
 let lbIndex = 0;
 function openLightbox(i){
   lbIndex = i;
-  document.getElementById('lbImg').src = allPhotosFlat[i];
+  const img = document.getElementById('lbImg');
+  img.src = allPhotosFlat[i];
+  img.setAttribute('draggable', 'false');
   lightbox.classList.add('open');
 }
 function closeLightbox(){ lightbox.classList.remove('open'); }
@@ -925,3 +935,6 @@ document.addEventListener('keydown', e=>{
 populateCountrySelect();
 restoreSession();
 initStorage();
+
+   
+ 
