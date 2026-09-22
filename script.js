@@ -51,6 +51,9 @@ async function restoreSession(){
   updateAuthUI();
   if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
   sb.auth.onAuthStateChange((event, session)=>{
+    if(event === 'PASSWORD_RECOVERY'){
+      document.getElementById('newPasswordOverlay').classList.add('open');
+    }
     if(session?.user){
       currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
     } else {
@@ -61,6 +64,22 @@ async function restoreSession(){
     if(storageMode === 'supabase') render();
   });
 }
+
+document.getElementById('newPasswordForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const newPassword = document.getElementById('newPasswordInput').value;
+  const errEl = document.getElementById('newPasswordError');
+  errEl.style.display = 'none';
+  try{
+    const { error } = await sb.auth.updateUser({ password: newPassword });
+    if(error) throw error;
+    document.getElementById('newPasswordOverlay').classList.remove('open');
+    toast("Mot de passe mis à jour !");
+  }catch(err){
+    errEl.textContent = err.message || "Impossible de mettre à jour le mot de passe.";
+    errEl.style.display = 'block';
+  }
+});
 
 document.getElementById('authBtn').onclick = async ()=>{
   if(currentUser){
@@ -108,6 +127,9 @@ function openAuthModal(){
   document.getElementById('authTitle').textContent = authMode === 'login' ? "Connexion" : "Créer un compte";
   document.getElementById('authSubmit').textContent = authMode === 'login' ? "Se connecter" : "Créer le compte";
   document.getElementById('authToggleMode').textContent = authMode === 'login' ? "Créer un compte" : "J'ai déjà un compte";
+  document.getElementById('authPseudoField').style.display = authMode === 'signup' ? 'block' : 'none';
+  document.getElementById('authPseudo').required = authMode === 'signup';
+  document.getElementById('authForgotPassword').style.display = authMode === 'login' ? 'block' : 'none';
   document.getElementById('authError').style.display = 'none';
   document.getElementById('authForm').reset();
   document.getElementById('authOverlay').classList.add('open');
@@ -127,13 +149,13 @@ document.getElementById('authOverlay').addEventListener('click', e=>{
 document.getElementById('authForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const pseudo = document.getElementById('authPseudo').value.trim();
+  const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
   const submitBtn = document.getElementById('authSubmit');
   submitBtn.disabled = true;
   try{
-    const email = pseudoToEmail(pseudo);
     if(authMode === 'signup'){
       const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo } } });
       if(error) throw error;
@@ -153,12 +175,35 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
     toast(authMode === 'signup' ? "Bienvenue !" : "Connecté");
     refreshMemberCount();
   }catch(err){
-    errEl.textContent = err.message?.includes('Invalid login') ? "Pseudo ou mot de passe incorrect." : (err.message || "Une erreur est survenue.");
+    errEl.textContent = err.message?.includes('Invalid login') ? "Email ou mot de passe incorrect." : (err.message || "Une erreur est survenue.");
     errEl.style.display = 'block';
   }finally{
     submitBtn.disabled = false;
   }
 });
+
+document.getElementById('authForgotPassword').onclick = async ()=>{
+  const email = document.getElementById('authEmail').value.trim();
+  const errEl = document.getElementById('authError');
+  if(!email){
+    errEl.textContent = "Tape d'abord ton email ci-dessus.";
+    errEl.style.display = 'block';
+    return;
+  }
+  try{
+    const { error } = await sb.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin + window.location.pathname
+    });
+    if(error) throw error;
+    errEl.style.color = 'var(--sage)';
+    errEl.textContent = "Email envoyé (si ce compte existe). Vérifie ta boîte mail.";
+    errEl.style.display = 'block';
+  }catch(err){
+    errEl.style.color = 'var(--stamp)';
+    errEl.textContent = "Impossible d'envoyer l'email pour le moment.";
+    errEl.style.display = 'block';
+  }
+};
 
 function requireAuth(){
   if(!sb) return true; // mode démo : pas de restriction
@@ -1082,3 +1127,7 @@ document.addEventListener('keydown', e=>{
 populateCountrySelect();
 restoreSession();
 initStorage();
+
+
+
+      
