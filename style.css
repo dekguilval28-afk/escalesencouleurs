@@ -269,6 +269,8 @@
     background:var(--paper);color:var(--ink);font-family:inherit;font-size:14.5px;
   }
   .field textarea{min-height:90px;resize:vertical;}
+  .field select[multiple]{padding:6px;}
+  .field select[multiple] option{padding:6px 8px;border-radius:3px;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
   .upload-box{
@@ -343,3 +345,21 @@
   .inbox-item .when{font-size:12px;color:var(--ink-soft);margin-bottom:6px;}
   .inbox-item .msg{font-size:14.5px;white-space:pre-wrap;}
   #authError{margin:4px 0 6px;}
+
+  .trip-select-box{
+    display:none;margin-right:2px;
+  }
+  .select-mode .trip-select-box.owned{display:inline-flex;align-items:center;}
+  .trip-select-box input{width:18px;height:18px;cursor:pointer;}
+  .trip.selected{outline:2px solid var(--gold);outline-offset:2px;}
+
+  .select-bar{
+    display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+    background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:30px;
+    z-index:65;align-items:center;gap:14px;box-shadow:0 8px 22px rgba(0,0,0,.3);
+    font-size:13.5px;
+  }
+  .select-bar.open{display:flex;}
+  .select-bar .btn-small{padding:6px 13px;font-size:13px;}
+
+
