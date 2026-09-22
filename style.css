@@ -164,6 +164,11 @@
   .stats-label{
     font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--ink-soft);margin:0 0 10px;
   }
+  .gate-prompt{
+    display:none;text-align:center;padding:38px 20px;
+    border:1.5px dashed var(--line);border-radius:12px;margin-bottom:20px;
+  }
+  .gate-prompt p{font-size:16px;color:var(--ink-soft);margin:0 0 16px;}
   .stats{
     display:flex;gap:14px;flex-wrap:wrap;
   }
@@ -361,5 +366,3 @@
   }
   .select-bar.open{display:flex;}
   .select-bar .btn-small{padding:6px 13px;font-size:13px;}
-
-
