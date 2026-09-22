@@ -48,6 +48,7 @@
       <div class="brand-title" id="siteTitle" contenteditable="true" spellcheck="false">Escales en couleurs</div>
     </div>
     <div class="nav-actions">
+      <button class="btn btn-ghost btn-small" id="shareReqBtn" title="Demandes de partage" style="display:none;">🔔 <span id="shareReqCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="inboxBtn" title="Messages" style="display:none;">✉️ <span id="inboxCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="authBtn">Connexion</button>
       <button class="btn btn-ghost btn-small" id="shareSiteBtn" title="Partager le carnet">↗ Partager</button>
@@ -197,7 +198,10 @@
   <section class="timeline-section">
     <div class="section-head">
       <h2>Le fil du voyage</h2>
-      <span class="count-pill" id="syncStatus"></span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button class="btn btn-ghost btn-small" id="selectModeBtn">☑ Sélectionner</button>
+        <span class="count-pill" id="syncStatus"></span>
+      </div>
     </div>
     <div id="timeline"></div>
   </section>
@@ -211,8 +215,8 @@
     <h2 id="modalTitle">Ajouter une étape</h2>
     <form id="tripForm">
       <div class="field">
-        <label for="countrySelect">Pays</label>
-        <select id="countrySelect" required></select>
+        <label for="countrySelect">Pays (tu peux en choisir plusieurs)</label>
+        <select id="countrySelect" required multiple size="7"></select>
       </div>
       <div class="row2">
         <div class="field">
@@ -301,6 +305,17 @@
   </div>
 </div>
 
+<!-- Demandes de partage -->
+<div class="overlay" id="shareReqOverlay">
+  <div class="modal">
+    <h2>Demandes de partage</h2>
+    <div id="shareReqList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="shareReqClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Messages reçus -->
 <div class="overlay" id="inboxOverlay">
   <div class="modal">
@@ -326,28 +341,7 @@
   </div>
   <div class="field">
     <label for="contactMessage">Message</label>
-    <textarea id="contactMessage" placeholder="Écris ton message ici..." style="min-height:80px;"></textarea>
-  </div>
-  <button type="button" class="btn btn-solid" id="contactSend" style="width:100%;">Envoyer</button>
-  <button type="button" class="btn-icon" id="myMessagesLink" style="width:100%;text-align:center;margin-top:8px;font-size:12.5px;">Voir / retirer mes messages envoyés</button>
-</div>
-
-<!-- Mes messages envoyés -->
-<div class="overlay" id="myMessagesOverlay">
-  <div class="modal">
-    <h2>Mes messages envoyés</h2>
-    <div id="myMessagesList" style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto;"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" id="myMessagesClose">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script src="script.js"></script>
-</body>
-</html>
+    <textarea id="contactMessage" placeholder="Écris ton message ici..." style="min-height:80px;"></texta
 
  
  
