@@ -49,7 +49,7 @@ async function restoreSession(){
     currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
   }
   updateAuthUI();
-  if(currentUser) refreshInboxCount();
+  if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
   sb.auth.onAuthStateChange((event, session)=>{
     if(session?.user){
       currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
@@ -57,7 +57,7 @@ async function restoreSession(){
       currentUser = null;
     }
     updateAuthUI();
-    if(currentUser) refreshInboxCount();
+    if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
     if(storageMode === 'supabase') render();
   });
 }
@@ -168,6 +168,70 @@ function requireAuth(){
   toast("Connecte-toi pour continuer");
   return false;
 }
+
+async function refreshShareReqCount(){
+  if(!sb || !currentUser) return;
+  try{
+    const { count } = await sb.from('share_requests').select('*', { count:'exact', head:true })
+      .eq('owner_id', currentUser.id).eq('status', 'pending');
+    document.getElementById('shareReqBtn').style.display = 'inline-block';
+    document.getElementById('shareReqCount').textContent = count ? `(${count})` : '';
+  }catch(e){}
+}
+
+document.getElementById('shareReqBtn').onclick = async ()=>{
+  const list = document.getElementById('shareReqList');
+  list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
+  document.getElementById('shareReqOverlay').classList.add('open');
+  try{
+    const { data, error } = await sb.from('share_requests').select('*')
+      .eq('owner_id', currentUser.id).eq('status', 'pending')
+      .order('created_at', { ascending:false });
+    if(error) throw error;
+    if(!data.length){
+      list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucune demande en attente.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    data.forEach(r=>{
+      const trip = trips.find(t=>t.id === r.trip_id);
+      const label = trip ? `${flagEmoji(trip.countryCode)} ${trip.country}${trip.city ? ' — ' + trip.city : ''}` : "une étape";
+      const div = document.createElement('div');
+      div.className = 'inbox-item';
+      div.innerHTML = `<div class="who">${escapeHtml(r.requester_pseudo || "Quelqu'un")}</div><div class="msg">souhaite partager : ${escapeHtml(label)}</div>`;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;margin-top:10px;';
+      const approve = document.createElement('button');
+      approve.className = 'btn btn-solid btn-small';
+      approve.textContent = 'Accepter';
+      approve.onclick = async ()=>{
+        await sb.from('share_requests').update({ status:'approved', responded_at: new Date().toISOString() }).eq('id', r.id);
+        toast("Demande acceptée");
+        document.getElementById('shareReqBtn').click();
+        refreshShareReqCount();
+      };
+      const deny = document.createElement('button');
+      deny.className = 'btn btn-ghost btn-small';
+      deny.textContent = 'Refuser';
+      deny.onclick = async ()=>{
+        await sb.from('share_requests').update({ status:'denied', responded_at: new Date().toISOString() }).eq('id', r.id);
+        toast("Demande refusée");
+        document.getElementById('shareReqBtn').click();
+        refreshShareReqCount();
+      };
+      row.appendChild(approve);
+      row.appendChild(deny);
+      div.appendChild(row);
+      list.appendChild(div);
+    });
+  }catch(e){
+    list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger les demandes.</p>';
+  }
+};
+document.getElementById('shareReqClose').onclick = ()=>document.getElementById('shareReqOverlay').classList.remove('open');
+document.getElementById('shareReqOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'shareReqOverlay') document.getElementById('shareReqOverlay').classList.remove('open');
+});
 
 /* ===================== Messages de contact ===================== */
 document.getElementById('contactBubbleBtn').onclick = ()=>{
@@ -668,9 +732,12 @@ function renderTripCard(trip){
   const countryName = country ? country[1] : (trip.country || "Quelque part");
   const el = document.createElement('article');
   el.className = 'trip';
+  el.dataset.tripId = trip.id;
+  const isOwned = storageMode === 'supabase' && currentUser && trip.userId === currentUser.id;
   el.innerHTML = `
     <div class="trip-top">
       <div class="trip-place">
+        <span class="trip-select-box${isOwned ? ' owned' : ''}"><input type="checkbox" data-select-trip></span>
         <span class="flag">${flagEmoji(trip.countryCode)}</span>
         <h3>${countryName}</h3>
         ${trip.city ? `<span class="trip-city">— ${escapeHtml(trip.city)}</span>` : ''}
@@ -713,9 +780,28 @@ function renderTripCard(trip){
     if(alreadyLiked) localStorage.removeItem(likedKey); else localStorage.setItem(likedKey, '1');
     persistTrip(updated);
   };
-  el.querySelector('[data-act="share"]').onclick = ()=>{
+  el.querySelector('[data-act="share"]').onclick = async ()=>{
     if(!requireAuth()) return;
-    shareContent(`Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`);
+    const shareText = `Notre étape ${countryName}${trip.city ? ' — ' + trip.city : ''} sur Escales en couleurs`;
+    if(storageMode !== 'supabase' || !trip.userId || trip.userId === currentUser.id){
+      shareContent(shareText);
+      return;
+    }
+    try{
+      const { data: existing } = await sb.from('share_requests')
+        .select('*').eq('trip_id', trip.id).eq('requester_id', currentUser.id)
+        .order('created_at', { ascending:false }).limit(1);
+      const req = existing && existing[0];
+      if(req && req.status === 'approved'){ shareContent(shareText); return; }
+      if(req && req.status === 'pending'){ toast("Ta demande est en attente de réponse du propriétaire."); return; }
+      if(req && req.status === 'denied'){ toast("Le propriétaire a refusé le partage de cette étape."); return; }
+      await sb.from('share_requests').insert({
+        trip_id: trip.id, requester_id: currentUser.id, requester_pseudo: currentUser.pseudo, owner_id: trip.userId
+      });
+      toast("Demande envoyée — en attente d'accord du propriétaire.");
+    }catch(e){
+      toast("Impossible d'envoyer la demande.");
+    }
   };
   el.querySelector('[data-act="edit"]')?.addEventListener('click', ()=>{ if(requireAuth()) openEditModal(trip); });
   el.querySelector('[data-act="del"]')?.addEventListener('click', ()=>{
@@ -725,6 +811,18 @@ function renderTripCard(trip){
       toast("Étape supprimée");
     }
   });
+  const selectBox = el.querySelector('[data-select-trip]');
+  if(selectBox){
+    selectBox.checked = selectedTripIds.has(trip.id);
+    el.classList.toggle('selected', selectBox.checked);
+    selectBox.onclick = (e)=>{
+      e.stopPropagation();
+      if(selectBox.checked) selectedTripIds.add(trip.id); else selectedTripIds.delete(trip.id);
+      el.classList.toggle('selected', selectBox.checked);
+      updateSelectBar();
+    };
+  }
+
   return el;
 }
 
@@ -778,7 +876,10 @@ function openEditModal(trip){
   editingId = trip.id;
   document.getElementById('modalTitle').textContent = "Modifier l'étape";
   document.getElementById('saveTrip').textContent = "Mettre à jour";
-  document.getElementById('countrySelect').value = trip.countryCode || '';
+  document.getElementById('countrySelect').value = '';
+  Array.from(document.getElementById('countrySelect').options).forEach(o=>{
+    o.selected = (o.value === trip.countryCode);
+  });
   document.getElementById('cityInput').value = trip.city || '';
   document.getElementById('dateStart').value = trip.dateStart || '';
   document.getElementById('dateEnd').value = trip.dateEnd || '';
@@ -796,6 +897,37 @@ function closeModal(){
 }
 
 document.getElementById('openAdd').onclick = ()=>{ if(requireAuth()) openAddModal(); };
+
+/* ===================== Sélection multiple pour partage groupé ===================== */
+let selectedTripIds = new Set();
+let selectModeOn = false;
+
+document.getElementById('selectModeBtn').onclick = ()=>{
+  selectModeOn = !selectModeOn;
+  document.getElementById('timeline').classList.toggle('select-mode', selectModeOn);
+  document.getElementById('selectModeBtn').textContent = selectModeOn ? "✕ Annuler la sélection" : "☑ Sélectionner";
+  if(!selectModeOn){
+    selectedTripIds.clear();
+    document.querySelectorAll('.trip.selected').forEach(t=>t.classList.remove('selected'));
+    document.querySelectorAll('[data-select-trip]').forEach(cb=>cb.checked=false);
+    updateSelectBar();
+  }
+};
+
+function updateSelectBar(){
+  const bar = document.getElementById('selectBar');
+  const n = selectedTripIds.size;
+  document.getElementById('selectCount').textContent = `${n} sélectionné(s)`;
+  bar.classList.toggle('open', n > 0);
+}
+
+document.getElementById('shareSelectionBtn').onclick = ()=>{
+  if(!requireAuth()) return;
+  const chosen = trips.filter(t => selectedTripIds.has(t.id));
+  if(!chosen.length) return;
+  const list = chosen.map(t => `${flagEmoji(t.countryCode)} ${t.country}${t.city ? ' — ' + t.city : ''}`).join(', ');
+  shareContent(`Nos étapes : ${list} — sur Escales en couleurs`);
+};
 
 /* ===================== Partage ===================== */
 function shareContent(text){
@@ -856,27 +988,42 @@ document.getElementById('addPhotoUrl').onclick = ()=>{
 form.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const saveBtn = document.getElementById('saveTrip');
-  const countryCode = document.getElementById('countrySelect').value;
-  if(!countryCode){ toast("Choisis un pays"); return; }
+  const countryCodes = Array.from(document.getElementById('countrySelect').selectedOptions).map(o=>o.value);
+  if(!countryCodes.length){ toast("Choisis au moins un pays"); return; }
   saveBtn.disabled = true;
   saveBtn.textContent = "Enregistrement…";
   try{
     const newPhotos = await photosToStorable();
     const existing = overlay._existingPhotos || [];
-    const trip = {
-      id: editingId || (Date.now().toString(36) + Math.random().toString(36).slice(2,7)),
-      isExisting: !!editingId,
-      countryCode,
-      country: (COUNTRY_MAP[countryCode]||[])[1] || '',
-      city: document.getElementById('cityInput').value.trim(),
-      dateStart: document.getElementById('dateStart').value,
-      dateEnd: document.getElementById('dateEnd').value,
-      story: document.getElementById('storyInput').value.trim(),
-      photos: existing.concat(newPhotos),
-      createdAt: Date.now()
-    };
-    await persistTrip(trip);
-    toast(editingId ? "Étape mise à jour" : "Étape ajoutée");
+    const city = document.getElementById('cityInput').value.trim();
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    const story = document.getElementById('storyInput').value.trim();
+    const photos = existing.concat(newPhotos);
+
+    if(editingId){
+      // En modification, on ne touche qu'à cette étape (un seul pays)
+      const countryCode = countryCodes[0];
+      const trip = {
+        id: editingId, isExisting: true, countryCode,
+        country: (COUNTRY_MAP[countryCode]||[])[1] || '',
+        city, dateStart, dateEnd, story, photos, createdAt: Date.now()
+      };
+      await persistTrip(trip);
+      toast("Étape mise à jour");
+    } else {
+      // Nouvelle étape : une carte par pays sélectionné, mêmes dates/récit/photos
+      for(const countryCode of countryCodes){
+        const trip = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+          isExisting: false, countryCode,
+          country: (COUNTRY_MAP[countryCode]||[])[1] || '',
+          city, dateStart, dateEnd, story, photos, createdAt: Date.now()
+        };
+        await persistTrip(trip);
+      }
+      toast(countryCodes.length > 1 ? `${countryCodes.length} étapes ajoutées` : "Étape ajoutée");
+    }
     closeModal();
   }catch(err){
     toast("Un souci est survenu, réessaie.");
@@ -935,6 +1082,3 @@ document.addEventListener('keydown', e=>{
 populateCountrySelect();
 restoreSession();
 initStorage();
-
-   
- 
