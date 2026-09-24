@@ -58,7 +58,7 @@ async function restoreSession(){
   refreshMemberCount();
   const { data:{ session } } = await sb.auth.getSession();
   if(session?.user){
-    currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
+    currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
   }
   updateAuthUI();
   if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
@@ -67,7 +67,7 @@ async function restoreSession(){
       document.getElementById('newPasswordOverlay').classList.add('open');
     }
     if(session?.user){
-      currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || 'Voyageur' };
+      currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
     } else {
       currentUser = null;
     }
@@ -160,6 +160,14 @@ document.getElementById('authCancel').onclick = closeAuthModal;
 document.getElementById('authOverlay').addEventListener('click', e=>{
   if(e.target.id === 'authOverlay') closeAuthModal();
 });
+
+document.getElementById('authGithubBtn').onclick = async ()=>{
+  if(!sb){ toast("Configure Supabase d'abord pour activer les comptes."); return; }
+  await sb.auth.signInWithOAuth({
+    provider: 'github',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+};
 
 document.getElementById('authForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -312,6 +320,7 @@ document.getElementById('contactSend').onclick = async ()=>{
       .insert({ name: name || null, contact: contact || null, message, owner_token });
     if(error) throw error;
     saveSentMessageLocally({ owner_token, message, created_at: new Date().toISOString() });
+    sb.functions.invoke('notify-contact', { body: { name, contact, message } }).catch(()=>{});
     toast("Message envoyé, merci !");
     document.getElementById('contactName').value = '';
     document.getElementById('contactContact').value = '';
@@ -1142,8 +1151,3 @@ document.addEventListener('keydown', e=>{
 populateCountrySelect();
 restoreSession();
 initStorage();
-
-
-
-
-      

@@ -78,14 +78,16 @@
   .brand-title[contenteditable]:focus{outline:none;border-bottom:1px dashed var(--gold);}
   .nav-actions{display:flex;gap:10px;position:relative;}
   .share-menu{
-    display:none;position:absolute;right:24px;top:64px;z-index:40;
-    background:var(--card-bg);border:1px solid var(--line);border-radius:8px;
-    box-shadow:0 6px 20px rgba(0,0,0,.15);padding:6px;flex-direction:column;min-width:170px;
+    display:none;position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:75;
+    background:var(--card-bg);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 12px 34px rgba(0,0,0,.28);padding:8px;flex-direction:column;min-width:200px;
   }
   .share-menu.open{display:flex;}
+  .share-menu-backdrop{display:none;position:fixed;inset:0;background:rgba(20,15,10,.35);z-index:70;}
+  .share-menu-backdrop.open{display:block;}
   .share-menu button{
-    background:none;border:none;text-align:left;padding:9px 12px;border-radius:5px;
-    font-size:14px;color:var(--ink);cursor:pointer;
+    background:none;border:none;text-align:left;padding:11px 14px;border-radius:6px;
+    font-size:14.5px;color:var(--ink);cursor:pointer;
   }
   .share-menu button:hover{background:var(--paper);}
   .like-count{font-size:12.5px;color:var(--ink-soft);margin-left:2px;}
