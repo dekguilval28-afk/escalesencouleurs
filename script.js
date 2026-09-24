@@ -51,6 +51,16 @@ function updateAuthUI(){
     inboxBtn.style.display = 'none';
   }
   updateContentGate();
+  applyEditableGate();
+}
+
+const OWNER_EMAIL = "dekguilval28@gmail.com";
+function applyEditableGate(){
+  const isOwner = !sb || (currentUser && currentUser.email === OWNER_EMAIL);
+  ['siteTitle','siteHeadline','siteLede'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.setAttribute('contenteditable', isOwner ? 'true' : 'false');
+  });
 }
 
 async function restoreSession(){
@@ -58,7 +68,7 @@ async function restoreSession(){
   refreshMemberCount();
   const { data:{ session } } = await sb.auth.getSession();
   if(session?.user){
-    currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
+    currentUser = { id: session.user.id, email: session.user.email, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
   }
   updateAuthUI();
   if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
@@ -67,7 +77,7 @@ async function restoreSession(){
       document.getElementById('newPasswordOverlay').classList.add('open');
     }
     if(session?.user){
-      currentUser = { id: session.user.id, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
+      currentUser = { id: session.user.id, email: session.user.email, pseudo: session.user.user_metadata?.pseudo || session.user.user_metadata?.user_name || session.user.user_metadata?.full_name || 'Voyageur' };
     } else {
       currentUser = null;
     }
@@ -160,14 +170,6 @@ document.getElementById('authCancel').onclick = closeAuthModal;
 document.getElementById('authOverlay').addEventListener('click', e=>{
   if(e.target.id === 'authOverlay') closeAuthModal();
 });
-
-document.getElementById('authGithubBtn').onclick = async ()=>{
-  if(!sb){ toast("Configure Supabase d'abord pour activer les comptes."); return; }
-  await sb.auth.signInWithOAuth({
-    provider: 'github',
-    options: { redirectTo: window.location.origin + window.location.pathname }
-  });
-};
 
 document.getElementById('authForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
