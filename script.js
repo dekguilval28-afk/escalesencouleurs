@@ -385,7 +385,7 @@ document.getElementById('myMessagesOverlay').addEventListener('click', e=>{
   if(e.target.id === 'myMessagesOverlay') document.getElementById('myMessagesOverlay').classList.remove('open');
 });
 
-function renderMyMessages(){
+async function renderMyMessages(){
   const list = document.getElementById('myMessagesList');
   let sent = [];
   try{ sent = JSON.parse(localStorage.getItem(SENT_KEY) || '[]'); }catch(e){}
@@ -393,8 +393,26 @@ function renderMyMessages(){
     list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucun message envoyé depuis cet appareil.</p>';
     return;
   }
+  list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
+
+  // Vérifie auprès de Supabase lesquels existent encore vraiment
+  let stillExisting = sent;
+  if(sb){
+    try{
+      const tokens = sent.map(m=>m.owner_token).filter(Boolean);
+      const { data } = await sb.from('messages').select('owner_token').in('owner_token', tokens);
+      const validTokens = new Set((data||[]).map(r=>r.owner_token));
+      stillExisting = sent.filter(m=>validTokens.has(m.owner_token));
+      localStorage.setItem(SENT_KEY, JSON.stringify(stillExisting));
+    }catch(e){ /* si la vérification échoue, on affiche la liste locale telle quelle */ }
+  }
+
+  if(!stillExisting.length){
+    list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucun message envoyé depuis cet appareil.</p>';
+    return;
+  }
   list.innerHTML = '';
-  sent.forEach(m=>{
+  stillExisting.forEach(m=>{
     const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'});
     const div = document.createElement('div');
     div.className = 'inbox-item';
