@@ -299,6 +299,40 @@ document.getElementById('shareReqBtn').onclick = async ()=>{
   }
 };
 document.getElementById('shareReqClose').onclick = ()=>document.getElementById('shareReqOverlay').classList.remove('open');
+
+document.getElementById('mySentReqLink').onclick = async ()=>{
+  document.getElementById('accountOverlay').classList.remove('open');
+  const list = document.getElementById('sentReqList');
+  list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
+  document.getElementById('sentReqOverlay').classList.add('open');
+  try{
+    const { data, error } = await sb.from('share_requests').select('*')
+      .eq('requester_id', currentUser.id)
+      .order('created_at', { ascending:false });
+    if(error) throw error;
+    if(!data.length){
+      list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucune demande envoyée pour l\'instant.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    const statusLabel = { pending:'En attente', approved:'Acceptée ✓', denied:'Refusée ✕' };
+    const statusColor = { pending:'var(--ink-soft)', approved:'var(--sage)', denied:'var(--stamp)' };
+    data.forEach(r=>{
+      const trip = trips.find(t=>t.id === r.trip_id);
+      const label = trip ? `${flagEmoji(trip.countryCode)} ${trip.country}${trip.city ? ' — ' + trip.city : ''}` : "une étape";
+      const div = document.createElement('div');
+      div.className = 'inbox-item';
+      div.innerHTML = `<div class="msg">${escapeHtml(label)}</div><div class="when" style="color:${statusColor[r.status]||'var(--ink-soft)'};font-weight:600;">${statusLabel[r.status] || r.status}</div>`;
+      list.appendChild(div);
+    });
+  }catch(e){
+    list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger tes demandes.</p>';
+  }
+};
+document.getElementById('sentReqClose').onclick = ()=>document.getElementById('sentReqOverlay').classList.remove('open');
+document.getElementById('sentReqOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'sentReqOverlay') document.getElementById('sentReqOverlay').classList.remove('open');
+});
 document.getElementById('shareReqOverlay').addEventListener('click', e=>{
   if(e.target.id === 'shareReqOverlay') document.getElementById('shareReqOverlay').classList.remove('open');
 });
@@ -365,21 +399,6 @@ function renderMyMessages(){
     const div = document.createElement('div');
     div.className = 'inbox-item';
     div.innerHTML = `<div class="when">${d}</div><div class="msg">${escapeHtml(m.message)}</div>`;
-    const rm = document.createElement('button');
-    rm.className = 'btn btn-ghost btn-small';
-    rm.style.marginTop = '8px';
-    rm.textContent = 'Retirer ce message';
-    rm.onclick = async ()=>{
-      if(!confirm("Retirer définitivement ce message ?")) return;
-      try{
-        await sb.from('messages').delete().eq('owner_token', m.owner_token);
-        let updated = sent.filter(x=>x.owner_token !== m.owner_token);
-        localStorage.setItem(SENT_KEY, JSON.stringify(updated));
-        toast("Message retiré");
-        renderMyMessages();
-      }catch(e){ toast("Impossible de retirer ce message."); }
-    };
-    div.appendChild(rm);
     list.appendChild(div);
   });
 }
