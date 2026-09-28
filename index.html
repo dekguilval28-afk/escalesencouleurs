@@ -325,13 +325,25 @@
     <h2>Mon compte</h2>
     <p style="font-size:14.5px;color:var(--ink-soft);margin:0 0 18px;">Connecté(e) en tant que <b id="accountPseudo" style="color:var(--ink);"></b></p>
     <p style="font-size:14.5px;color:var(--ink-soft);margin:0 0 12px;"><span id="accountMemberCount">0</span> membre(s) inscrit(s) sur le site</p>
-    <button type="button" class="btn-icon" id="mySentReqLink" style="font-size:13px;padding:0 0 16px;display:block;">Voir mes demandes de partage envoyées</button>
+    <button type="button" class="btn-icon" id="mySentReqLink" style="font-size:13px;padding:0 0 8px;display:block;">Voir mes demandes de partage envoyées</button>
+    <button type="button" class="btn-icon" id="viewMembersLink" style="font-size:13px;padding:0 0 16px;display:none;">Voir la liste des membres inscrits</button>
     <div class="modal-actions" style="justify-content:space-between;">
       <button type="button" class="btn btn-ghost" id="accountSignOut">Se déconnecter</button>
       <button type="button" class="btn" id="accountDelete" style="border-color:var(--stamp);color:var(--stamp);">Supprimer mon compte</button>
     </div>
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="accountClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Liste des membres (propriétaire uniquement) -->
+<div class="overlay" id="membersOverlay">
+  <div class="modal">
+    <h2>Membres inscrits</h2>
+    <div id="membersList" style="display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="membersClose">Fermer</button>
     </div>
   </div>
 </div>
