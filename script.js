@@ -61,7 +61,39 @@ function applyEditableGate(){
     const el = document.getElementById(id);
     if(el) el.setAttribute('contenteditable', isOwner ? 'true' : 'false');
   });
+  const membersLink = document.getElementById('viewMembersLink');
+  if(membersLink) membersLink.style.display = isOwner && sb ? 'block' : 'none';
 }
+
+document.getElementById('viewMembersLink').onclick = async ()=>{
+  document.getElementById('accountOverlay').classList.remove('open');
+  const list = document.getElementById('membersList');
+  list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
+  document.getElementById('membersOverlay').classList.add('open');
+  try{
+    const { data, error } = await sb.functions.invoke('list-members');
+    if(error) throw error;
+    const members = data.members || [];
+    if(!members.length){
+      list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Aucun membre pour l\'instant.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    members.forEach(m=>{
+      const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'});
+      const div = document.createElement('div');
+      div.className = 'inbox-item';
+      div.innerHTML = `<div class="who">${escapeHtml(m.pseudo || 'Sans pseudo')}</div><div class="when">${escapeHtml(m.email)} · inscrit le ${d}</div>`;
+      list.appendChild(div);
+    });
+  }catch(e){
+    list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger la liste des membres.</p>';
+  }
+};
+document.getElementById('membersClose').onclick = ()=>document.getElementById('membersOverlay').classList.remove('open');
+document.getElementById('membersOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'membersOverlay') document.getElementById('membersOverlay').classList.remove('open');
+});
 
 async function restoreSession(){
   if(!sb) { updateAuthUI(); return; }
