@@ -151,6 +151,32 @@ document.getElementById('authBtn').onclick = async ()=>{
 };
 
 document.getElementById('accountClose').onclick = ()=>document.getElementById('accountOverlay').classList.remove('open');
+
+document.getElementById('accountSavePseudo').onclick = async ()=>{
+  const input = document.getElementById('accountNewPseudo');
+  const newPseudo = input.value.trim();
+  if(newPseudo.length < 2){ toast("Le pseudo doit faire au moins 2 caractères."); return; }
+  if(newPseudo === currentUser.pseudo){ toast("C'est déjà ton pseudo."); return; }
+  const btn = document.getElementById('accountSavePseudo');
+  btn.disabled = true;
+  try{
+    const { error } = await sb.auth.updateUser({ data: { pseudo: newPseudo } });
+    if(error) throw error;
+    // Met à jour le pseudo sur les voyages déjà publiés et dans la table des profils
+    await sb.from('trips').update({ pseudo: newPseudo }).eq('user_id', currentUser.id);
+    await sb.from('profiles').update({ pseudo: newPseudo }).eq('id', currentUser.id);
+    currentUser.pseudo = newPseudo;
+    document.getElementById('accountPseudo').textContent = newPseudo;
+    input.value = '';
+    updateAuthUI();
+    await loadSupabaseTrips();
+    toast("Pseudo mis à jour !");
+  }catch(e){
+    toast("Impossible de changer le pseudo pour le moment.");
+  }finally{
+    btn.disabled = false;
+  }
+};
 document.getElementById('accountOverlay').addEventListener('click', e=>{
   if(e.target.id === 'accountOverlay') document.getElementById('accountOverlay').classList.remove('open');
 });
