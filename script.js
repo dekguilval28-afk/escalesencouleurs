@@ -1019,6 +1019,15 @@ function populateCountrySelect(){
     sel.appendChild(opt);
   });
   document.getElementById('countrySearch').addEventListener('input', renderCountryPicker);
+  document.getElementById('countrySearch').addEventListener('focus', ()=>{
+    document.getElementById('countryPicker').classList.add('open');
+  });
+  document.addEventListener('click', (e)=>{
+    const picker = document.getElementById('countryPicker');
+    if(picker && !e.composedPath().includes(picker)){
+      picker.classList.remove('open');
+    }
+  });
   document.getElementById('countrySearch').addEventListener('keydown', (e)=>{
     if(e.key === 'Enter'){
       e.preventDefault(); // évite d'envoyer le formulaire par erreur
@@ -1106,6 +1115,7 @@ function openAddModal(){
   document.getElementById('saveTrip').textContent = "Enregistrer l'étape";
   form.reset();
   document.getElementById('countrySearch').value = '';
+  document.getElementById('countryPicker').classList.remove('open');
   renderCountryPicker();
   document.getElementById('countryList').scrollTop = 0;
   pendingPhotos = [];
@@ -1120,6 +1130,7 @@ function openEditModal(trip){
     o.selected = (o.value === trip.countryCode);
   });
   document.getElementById('countrySearch').value = '';
+  document.getElementById('countryPicker').classList.remove('open');
   renderCountryPicker();
   document.getElementById('countryList').scrollTop = 0;
   document.getElementById('cityInput').value = trip.city || '';
