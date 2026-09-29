@@ -1009,24 +1009,95 @@ const form = document.getElementById('tripForm');
 let editingId = null;
 
 function populateCountrySelect(){
+  // Le <select> caché sert de mémoire : une option par pays, sans regroupement
   const sel = document.getElementById('countrySelect');
-  const byContinent = {};
+  sel.innerHTML = '';
   COUNTRIES.forEach(c=>{
-    byContinent[c[2]] = byContinent[c[2]] || [];
-    byContinent[c[2]].push(c);
+    const opt = document.createElement('option');
+    opt.value = c[0];
+    opt.textContent = c[1];
+    sel.appendChild(opt);
   });
-  sel.innerHTML = '<option value="">Choisir un pays…</option>';
-  Object.keys(byContinent).forEach(cont=>{
-    const group = document.createElement('optgroup');
-    group.label = cont;
-    byContinent[cont].forEach(c=>{
-      const opt = document.createElement('option');
-      opt.value = c[0];
-      opt.textContent = `${flagEmoji(c[0])} ${c[1]}`;
-      group.appendChild(opt);
-    });
-    sel.appendChild(group);
+  document.getElementById('countrySearch').addEventListener('input', renderCountryPicker);
+  document.getElementById('countrySearch').addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault(); // évite d'envoyer le formulaire par erreur
+      const q = normalizeText(e.target.value.trim());
+      const first = COUNTRIES.find(c => !q || normalizeText(c[1]).includes(q));
+      if(first && q) toggleCountry(first[0]);
+    }
   });
+  renderCountryPicker();
+}
+
+function normalizeText(s){
+  return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+
+function toggleCountry(code){
+  const sel = document.getElementById('countrySelect');
+  const opt = Array.from(sel.options).find(o=>o.value === code);
+  if(!opt) return;
+  if(editingId){
+    // En modification, une étape = un seul pays
+    Array.from(sel.options).forEach(o=>{ o.selected = (o.value === code); });
+  } else {
+    opt.selected = !opt.selected;
+  }
+  renderCountryPicker();
+}
+
+function renderCountryPicker(){
+  const sel = document.getElementById('countrySelect');
+  const selected = new Set(Array.from(sel.selectedOptions).map(o=>o.value));
+  const q = normalizeText(document.getElementById('countrySearch').value.trim());
+
+  // Pastilles des pays choisis
+  const chips = document.getElementById('countryChips');
+  chips.innerHTML = '';
+  selected.forEach(code=>{
+    const c = COUNTRY_MAP[code];
+    if(!c) return;
+    const chip = document.createElement('span');
+    chip.className = 'country-chip';
+    chip.appendChild(document.createTextNode(`${flagEmoji(code)} ${c[1]}`));
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = '×';
+    x.setAttribute('aria-label', 'Retirer ' + c[1]);
+    x.onclick = ()=>toggleCountry(code);
+    chip.appendChild(x);
+    chips.appendChild(chip);
+  });
+
+  // Liste défilante (filtrée si une recherche est en cours)
+  const list = document.getElementById('countryList');
+  const previousScroll = list.scrollTop;
+  list.innerHTML = '';
+  let lastContinent = null;
+  let shown = 0;
+  COUNTRIES.forEach(c=>{
+    if(q && !normalizeText(c[1]).includes(q)) return;
+    if(!q && c[2] !== lastContinent){
+      const h = document.createElement('div');
+      h.className = 'country-cont';
+      h.textContent = c[2];
+      list.appendChild(h);
+      lastContinent = c[2];
+    }
+    const isSelected = selected.has(c[0]);
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'country-item' + (isSelected ? ' selected' : '');
+    item.innerHTML = `<span>${flagEmoji(c[0])}</span><span>${escapeHtml(c[1])}</span>${isSelected ? '<span class="check">✓</span>' : ''}`;
+    item.onclick = ()=>toggleCountry(c[0]);
+    list.appendChild(item);
+    shown++;
+  });
+  if(!shown){
+    list.innerHTML = '<div class="country-empty">Aucun pays trouvé</div>';
+  }
+  list.scrollTop = previousScroll;
 }
 
 function openAddModal(){
@@ -1034,6 +1105,9 @@ function openAddModal(){
   document.getElementById('modalTitle').textContent = "Ajouter une étape";
   document.getElementById('saveTrip').textContent = "Enregistrer l'étape";
   form.reset();
+  document.getElementById('countrySearch').value = '';
+  renderCountryPicker();
+  document.getElementById('countryList').scrollTop = 0;
   pendingPhotos = [];
   renderPreview();
   overlay.classList.add('open');
@@ -1042,10 +1116,12 @@ function openEditModal(trip){
   editingId = trip.id;
   document.getElementById('modalTitle').textContent = "Modifier l'étape";
   document.getElementById('saveTrip').textContent = "Mettre à jour";
-  document.getElementById('countrySelect').value = '';
   Array.from(document.getElementById('countrySelect').options).forEach(o=>{
     o.selected = (o.value === trip.countryCode);
   });
+  document.getElementById('countrySearch').value = '';
+  renderCountryPicker();
+  document.getElementById('countryList').scrollTop = 0;
   document.getElementById('cityInput').value = trip.city || '';
   document.getElementById('dateStart').value = trip.dateStart || '';
   document.getElementById('dateEnd').value = trip.dateEnd || '';
