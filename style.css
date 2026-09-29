@@ -275,6 +275,36 @@
   .field textarea{min-height:90px;resize:vertical;}
   .field select[multiple]{padding:6px;}
   .field select[multiple] option{padding:6px 8px;border-radius:3px;}
+
+  .country-list{
+    max-height:220px;overflow-y:auto;margin-top:8px;
+    border:1px solid var(--line);border-radius:6px;background:var(--paper);
+  }
+  .country-cont{
+    position:sticky;top:0;padding:6px 12px;font-size:11.5px;text-transform:uppercase;
+    letter-spacing:1px;color:var(--ink-soft);background:var(--paper-raised);
+    border-bottom:1px solid var(--line);
+  }
+  .country-item{
+    display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;
+    background:none;border:none;text-align:left;cursor:pointer;
+    color:var(--ink);font-size:14.5px;font-family:inherit;
+  }
+  .country-item:hover{background:var(--line);}
+  .country-item.selected{background:var(--paper-raised);font-weight:600;}
+  .country-item .check{margin-left:auto;color:var(--stamp);}
+  .country-empty{padding:16px;text-align:center;color:var(--ink-soft);font-size:14px;}
+  .country-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .country-chips:empty{display:none;}
+  .country-chip{
+    display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;
+    border:1px solid var(--gold);border-radius:20px;font-size:13px;background:var(--paper-raised);
+  }
+  .country-chip button{
+    border:none;background:none;cursor:pointer;color:var(--ink-soft);
+    font-size:16px;line-height:1;padding:0 4px;
+  }
+  .country-chip button:hover{color:var(--stamp);}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
   .upload-box{
