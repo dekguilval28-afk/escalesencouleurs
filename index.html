@@ -225,9 +225,11 @@
       <div class="field">
         <label for="countrySearch">Pays (touche pour choisir, tu peux en choisir plusieurs)</label>
         <select id="countrySelect" multiple style="display:none;"></select>
-        <input type="text" id="countrySearch" placeholder="🔍 Rechercher un pays…" autocomplete="off">
         <div class="country-chips" id="countryChips"></div>
-        <div class="country-list" id="countryList"></div>
+        <div class="country-picker" id="countryPicker">
+          <input type="text" id="countrySearch" placeholder="🔍 Rechercher un pays…" autocomplete="off">
+          <div class="country-list" id="countryList"></div>
+        </div>
       </div>
       <div class="row2">
         <div class="field">
