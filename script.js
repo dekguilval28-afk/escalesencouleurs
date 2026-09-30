@@ -396,13 +396,32 @@ document.getElementById('shareReqOverlay').addEventListener('click', e=>{
 });
 
 /* ===================== Messages de contact ===================== */
+async function loadRecipientOptions(){
+  const sel = document.getElementById('contactRecipient');
+  if(!sb || sel.dataset.loaded) return;
+  try{
+    const { data } = await sb.from('profiles').select('id, pseudo').not('pseudo', 'is', null);
+    (data||[]).forEach(p=>{
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.pseudo;
+      sel.appendChild(opt);
+    });
+    sel.dataset.loaded = '1';
+  }catch(e){}
+}
+
 document.getElementById('contactBubbleBtn').onclick = ()=>{
   document.getElementById('contactPanel').classList.toggle('open');
+  loadRecipientOptions();
 };
 document.getElementById('contactSend').onclick = async ()=>{
   const name = document.getElementById('contactName').value.trim();
   const contact = document.getElementById('contactContact').value.trim();
   const message = document.getElementById('contactMessage').value.trim();
+  const recipientSel = document.getElementById('contactRecipient');
+  const recipient_id = recipientSel.value || null;
+  const recipientLabel = recipientSel.value ? recipientSel.options[recipientSel.selectedIndex].textContent : null;
   if(!message){ toast("Écris un message d'abord"); return; }
   if(!sb){
     toast("La messagerie sera active une fois Supabase connecté.");
@@ -411,14 +430,15 @@ document.getElementById('contactSend').onclick = async ()=>{
   try{
     const owner_token = crypto.randomUUID();
     const { error } = await sb.from('messages')
-      .insert({ name: name || null, contact: contact || null, message, owner_token });
+      .insert({ name: name || null, contact: contact || null, message, owner_token, recipient_id });
     if(error) throw error;
     saveSentMessageLocally({ owner_token, message, created_at: new Date().toISOString() });
-    sb.functions.invoke('notify-contact', { body: { name, contact, message } }).catch(()=>{});
-    toast("Message envoyé, merci !");
+    sb.functions.invoke('notify-contact', { body: { name, contact, message, to: recipientLabel } }).catch(()=>{});
+    toast(recipientLabel ? `Message envoyé à ${recipientLabel} !` : "Message envoyé, merci !");
     document.getElementById('contactName').value = '';
     document.getElementById('contactContact').value = '';
     document.getElementById('contactMessage').value = '';
+    recipientSel.value = '';
     document.getElementById('contactPanel').classList.remove('open');
   }catch(err){
     toast("Impossible d'envoyer le message.");
@@ -505,7 +525,7 @@ document.getElementById('inboxBtn').onclick = async ()=>{
       const div = document.createElement('div');
       div.className = 'inbox-item';
       const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'});
-      div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div>${m.contact ? `<div class="when">📧 ${escapeHtml(m.contact)}</div>` : ''}<div class="msg">${escapeHtml(m.message)}</div>`;
+      div.innerHTML = `<div class="who">${escapeHtml(m.name || 'Anonyme')}</div><div class="when">${d}</div>${m.recipient_id ? `<div class="when" style="color:var(--gold);">🔒 Message privé${m.recipient_id === currentUser.id ? ' (pour toi)' : ''}</div>` : ''}${m.contact ? `<div class="when">📧 ${escapeHtml(m.contact)}</div>` : ''}<div class="msg">${escapeHtml(m.message)}</div>`;
       const rm = document.createElement('button');
       rm.className = 'btn btn-ghost btn-small';
       rm.style.marginTop = '8px';
@@ -1332,6 +1352,18 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ===================== Init ===================== */
+document.getElementById('footerYear').textContent = new Date().getFullYear();
+document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
+document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
+document.getElementById('legalOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'legalOverlay') document.getElementById('legalOverlay').classList.remove('open');
+});
+document.getElementById('openPrivacy').onclick = ()=>document.getElementById('privacyOverlay').classList.add('open');
+document.getElementById('privacyClose').onclick = ()=>document.getElementById('privacyOverlay').classList.remove('open');
+document.getElementById('privacyOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'privacyOverlay') document.getElementById('privacyOverlay').classList.remove('open');
+});
+
 populateCountrySelect();
 restoreSession();
 initStorage();
