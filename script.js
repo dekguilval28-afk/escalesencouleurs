@@ -433,7 +433,7 @@ document.getElementById('contactSend').onclick = async ()=>{
       .insert({ name: name || null, contact: contact || null, message, owner_token, recipient_id });
     if(error) throw error;
     saveSentMessageLocally({ owner_token, message, created_at: new Date().toISOString() });
-    sb.functions.invoke('notify-contact', { body: { name, contact, message, to: recipientLabel } }).catch(()=>{});
+    sb.functions.invoke('notify-contact', { body: { name, contact, message, recipient_id } }).catch(()=>{});
     toast(recipientLabel ? `Message envoyé à ${recipientLabel} !` : "Message envoyé, merci !");
     document.getElementById('contactName').value = '';
     document.getElementById('contactContact').value = '';
