@@ -215,7 +215,67 @@
   </section>
 </main>
 
-<footer></footer>
+<footer>
+  <p>© <span id="footerYear">2026</span> Escales en couleurs</p>
+  <p class="footer-links">
+    <button type="button" class="btn-icon" id="openLegal">Mentions légales</button>
+    ·
+    <button type="button" class="btn-icon" id="openPrivacy">Confidentialité</button>
+  </p>
+</footer>
+
+<!-- Mentions légales -->
+<div class="overlay" id="legalOverlay">
+  <div class="modal legal-modal">
+    <h2>Mentions légales</h2>
+    <div class="legal-text">
+      <h3>Édition du site</h3>
+      <p>Ce site est édité à titre personnel dans le cadre d'un usage familial et non commercial.<br>
+      Contact : via la messagerie du site (bulle 💬) ou à l'adresse indiquée sur la page d'accueil.</p>
+
+      <h3>Hébergement</h3>
+      <p>Le site est hébergé par Vercel Inc., 340 S Lemon Ave #4133, Walnut, CA 91789, USA.<br>
+      La base de données et les comptes sont gérés par Supabase Inc.</p>
+
+      <h3>Propriété du contenu</h3>
+      <p>Les textes, photos et souvenirs publiés par les membres restent la propriété de leurs auteurs respectifs. Toute reproduction sans autorisation est interdite.</p>
+
+      <h3>Responsabilité</h3>
+      <p>Ce site est un projet personnel, proposé "en l'état", sans garantie de disponibilité continue.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="legalClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confidentialité -->
+<div class="overlay" id="privacyOverlay">
+  <div class="modal legal-modal">
+    <h2>Politique de confidentialité</h2>
+    <div class="legal-text">
+      <h3>Données collectées</h3>
+      <p>Lors de la création d'un compte : un pseudo et une adresse email.<br>
+      Lors de l'ajout d'une étape : les informations et photos que vous choisissez de publier.<br>
+      Lors de l'envoi d'un message : le nom, message et coordonnées que vous indiquez (facultatifs, sauf le message).</p>
+
+      <h3>Utilisation</h3>
+      <p>Ces données servent uniquement au fonctionnement du site : afficher votre pseudo, vous permettre de vous reconnecter, et transmettre les messages envoyés via la bulle de contact.</p>
+
+      <h3>Stockage</h3>
+      <p>Les données sont stockées de façon sécurisée chez Supabase (Irlande, UE). Les mots de passe ne sont jamais stockés en clair.</p>
+
+      <h3>Vos droits</h3>
+      <p>Vous pouvez à tout moment supprimer votre compte et vos données depuis "Mon compte" sur le site. Pour toute autre demande, contactez-nous via la bulle de messagerie 💬.</p>
+
+      <h3>Cookies</h3>
+      <p>Ce site utilise uniquement le stockage nécessaire à votre connexion (aucun cookie publicitaire ou de suivi).</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="privacyClose">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Add/edit trip modal -->
 <div class="overlay" id="overlay">
@@ -400,6 +460,12 @@
   <div class="field">
     <label for="contactName">Ton nom (facultatif)</label>
     <input type="text" id="contactName" placeholder="Ton prénom">
+  </div>
+  <div class="field">
+    <label for="contactRecipient">Destinataire</label>
+    <select id="contactRecipient">
+      <option value="">Message général (visible par la famille)</option>
+    </select>
   </div>
   <div class="field">
     <label for="contactContact">Email ou téléphone (facultatif, pour qu'on te réponde)</label>
