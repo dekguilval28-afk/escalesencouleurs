@@ -234,7 +234,7 @@
       Contact : via la messagerie du site (bulle 💬) ou à l'adresse indiquée sur la page d'accueil.</p>
 
       <h3>Hébergement</h3>
-      <p>Le site est hébergé par Vercel Inc., 340 S Lemon Ave #4133, Walnut, CA 91789, USA.<br>
+      <p>Le site est hébergé par Vercel Inc. (États-Unis).<br>
       La base de données et les comptes sont gérés par Supabase Inc.</p>
 
       <h3>Propriété du contenu</h3>
@@ -462,10 +462,12 @@
     <input type="text" id="contactName" placeholder="Ton prénom">
   </div>
   <div class="field">
-    <label for="contactRecipient">Destinataire</label>
-    <select id="contactRecipient">
-      <option value=""></option>
-    </select>
+    <label for="recipientSearch">Destinataire (facultatif)</label>
+    <select id="contactRecipient" style="display:none;"><option value=""></option></select>
+    <div class="country-picker" id="recipientPicker">
+      <input type="text" id="recipientSearch" placeholder="🔍 Taper un nom ou pseudo…" autocomplete="off">
+      <div class="country-list" id="recipientListBox"></div>
+    </div>
   </div>
   <div class="field">
     <label for="contactContact">Email</label>
