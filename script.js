@@ -396,20 +396,58 @@ document.getElementById('shareReqOverlay').addEventListener('click', e=>{
 });
 
 /* ===================== Messages de contact ===================== */
+let allMembers = [];
+let selectedRecipient = null; // {id, pseudo}
+
 async function loadRecipientOptions(){
-  const sel = document.getElementById('contactRecipient');
-  if(!sb || sel.dataset.loaded) return;
+  if(!sb || allMembers.length) return;
   try{
     const { data } = await sb.from('profiles').select('id, pseudo').not('pseudo', 'is', null);
-    (data||[]).forEach(p=>{
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.pseudo;
-      sel.appendChild(opt);
-    });
-    sel.dataset.loaded = '1';
+    allMembers = data || [];
   }catch(e){}
 }
+
+function renderRecipientList(){
+  const q = normalizeText(document.getElementById('recipientSearch').value.trim());
+  const box = document.getElementById('recipientListBox');
+  box.innerHTML = '';
+  const matches = allMembers.filter(m => !q || normalizeText(m.pseudo).includes(q));
+  if(!matches.length){
+    box.innerHTML = '<div class="country-empty">Aucun membre trouvé</div>';
+    return;
+  }
+  matches.forEach(m=>{
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'country-item' + (selectedRecipient?.id === m.id ? ' selected' : '');
+    item.innerHTML = `<span>${escapeHtml(m.pseudo)}</span>${selectedRecipient?.id === m.id ? '<span class="check">✓</span>' : ''}`;
+    item.onclick = ()=>{
+      selectedRecipient = m;
+      document.getElementById('recipientSearch').value = m.pseudo;
+      document.getElementById('contactRecipient').value = m.id;
+      document.getElementById('recipientPicker').classList.remove('open');
+    };
+    box.appendChild(item);
+  });
+}
+
+document.getElementById('recipientSearch').addEventListener('focus', ()=>{
+  document.getElementById('recipientPicker').classList.add('open');
+  renderRecipientList();
+});
+document.getElementById('recipientSearch').addEventListener('input', (e)=>{
+  if(selectedRecipient && e.target.value !== selectedRecipient.pseudo){
+    selectedRecipient = null;
+    document.getElementById('contactRecipient').value = '';
+  }
+  renderRecipientList();
+});
+document.addEventListener('click', (e)=>{
+  const picker = document.getElementById('recipientPicker');
+  if(picker && !e.composedPath().includes(picker)){
+    picker.classList.remove('open');
+  }
+});
 
 document.getElementById('contactBubbleBtn').onclick = ()=>{
   document.getElementById('contactPanel').classList.toggle('open');
@@ -419,9 +457,8 @@ document.getElementById('contactSend').onclick = async ()=>{
   const name = document.getElementById('contactName').value.trim();
   const contact = document.getElementById('contactContact').value.trim();
   const message = document.getElementById('contactMessage').value.trim();
-  const recipientSel = document.getElementById('contactRecipient');
-  const recipient_id = recipientSel.value || null;
-  const recipientLabel = recipientSel.value ? recipientSel.options[recipientSel.selectedIndex].textContent : null;
+  const recipient_id = selectedRecipient?.id || null;
+  const recipientLabel = selectedRecipient?.pseudo || null;
   if(!message){ toast("Écris un message d'abord"); return; }
   if(!sb){
     toast("La messagerie sera active une fois Supabase connecté.");
@@ -438,7 +475,9 @@ document.getElementById('contactSend').onclick = async ()=>{
     document.getElementById('contactName').value = '';
     document.getElementById('contactContact').value = '';
     document.getElementById('contactMessage').value = '';
-    recipientSel.value = '';
+    document.getElementById('recipientSearch').value = '';
+    document.getElementById('contactRecipient').value = '';
+    selectedRecipient = null;
     document.getElementById('contactPanel').classList.remove('open');
   }catch(err){
     toast("Impossible d'envoyer le message.");
