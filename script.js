@@ -65,8 +65,18 @@ function applyEditableGate(){
   if(membersLink) membersLink.style.display = isOwner && sb ? 'block' : 'none';
 }
 
+let membersToRemove = new Set();
+
+function updateRemoveMembersBtn(){
+  const btn = document.getElementById('removeMembersBtn');
+  btn.textContent = `Retirer la sélection (${membersToRemove.size})`;
+  btn.disabled = membersToRemove.size === 0;
+}
+
 document.getElementById('viewMembersLink').onclick = async ()=>{
   document.getElementById('accountOverlay').classList.remove('open');
+  membersToRemove = new Set();
+  updateRemoveMembersBtn();
   const list = document.getElementById('membersList');
   list.innerHTML = '<p style="color:var(--ink-soft);font-size:14px;">Chargement…</p>';
   document.getElementById('membersOverlay').classList.add('open');
@@ -81,15 +91,49 @@ document.getElementById('viewMembersLink').onclick = async ()=>{
     list.innerHTML = '';
     members.forEach(m=>{
       const d = new Date(m.created_at).toLocaleDateString('fr-FR', {day:'numeric', month:'short', year:'numeric'});
+      const isMe = currentUser && m.id === currentUser.id;
       const div = document.createElement('div');
       div.className = 'inbox-item';
-      div.innerHTML = `<div class="who">${escapeHtml(m.pseudo || 'Sans pseudo')}</div><div class="when">${escapeHtml(m.email)} · inscrit le ${d}</div>`;
+      div.style.display = 'flex';
+      div.style.alignItems = 'flex-start';
+      div.style.gap = '10px';
+      div.innerHTML = `
+        ${isMe ? '<span style="width:18px;"></span>' : `<input type="checkbox" style="width:18px;height:18px;margin-top:2px;cursor:pointer;">`}
+        <div><div class="who">${escapeHtml(m.pseudo || 'Sans pseudo')}${isMe ? ' (toi)' : ''}</div><div class="when">${escapeHtml(m.email)} · inscrit le ${d}</div></div>
+      `;
+      if(!isMe){
+        const cb = div.querySelector('input[type="checkbox"]');
+        cb.onchange = ()=>{
+          if(cb.checked) membersToRemove.add(m.id); else membersToRemove.delete(m.id);
+          updateRemoveMembersBtn();
+        };
+      }
       list.appendChild(div);
     });
   }catch(e){
     list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger la liste des membres.</p>';
   }
 };
+
+document.getElementById('removeMembersBtn').onclick = async ()=>{
+  const n = membersToRemove.size;
+  if(!n) return;
+  if(!confirm(`Retirer définitivement ${n} membre(s) ? Leurs voyages seront aussi supprimés. Cette action est irréversible.`)) return;
+  const btn = document.getElementById('removeMembersBtn');
+  btn.disabled = true;
+  btn.textContent = 'Suppression…';
+  let failed = 0;
+  for(const id of membersToRemove){
+    try{
+      const { error } = await sb.functions.invoke('remove-member', { body: { user_id: id } });
+      if(error) failed++;
+    }catch(e){ failed++; }
+  }
+  toast(failed ? `${n - failed} membre(s) retiré(s), ${failed} échec(s).` : `${n} membre(s) retiré(s).`);
+  await loadSupabaseTrips();
+  document.getElementById('viewMembersLink').click();
+};
+
 document.getElementById('membersClose').onclick = ()=>document.getElementById('membersOverlay').classList.remove('open');
 document.getElementById('membersOverlay').addEventListener('click', e=>{
   if(e.target.id === 'membersOverlay') document.getElementById('membersOverlay').classList.remove('open');
@@ -431,8 +475,12 @@ function renderRecipientList(){
   });
 }
 
-document.getElementById('recipientSearch').addEventListener('focus', ()=>{
+document.getElementById('recipientSearch').addEventListener('focus', async ()=>{
   document.getElementById('recipientPicker').classList.add('open');
+  if(!allMembers.length){
+    document.getElementById('recipientListBox').innerHTML = '<div class="country-empty">Chargement…</div>';
+    await loadRecipientOptions();
+  }
   renderRecipientList();
 });
 document.getElementById('recipientSearch').addEventListener('input', (e)=>{
@@ -541,7 +589,7 @@ async function renderMyMessages(){
 async function refreshInboxCount(){
   if(!sb || !currentUser) return;
   try{
-    const { count } = await sb.from('messages').select('*', { count:'exact', head:true }).eq('read', false);
+    const { count } = await sb.from('messages').select('*', { count:'exact', head:true });
     const el = document.getElementById('inboxCount');
     el.textContent = count ? `(${count})` : '';
   }catch(e){}
@@ -581,7 +629,6 @@ document.getElementById('inboxBtn').onclick = async ()=>{
       div.appendChild(rm);
       list.appendChild(div);
     });
-    await sb.from('messages').update({ read:true }).eq('read', false);
     refreshInboxCount();
   }catch(err){
     list.innerHTML = '<p style="color:var(--stamp);font-size:14px;">Impossible de charger les messages.</p>';
