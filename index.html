@@ -414,7 +414,8 @@
   <div class="modal">
     <h2>Membres inscrits</h2>
     <div id="membersList" style="display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;"></div>
-    <div class="modal-actions">
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button type="button" class="btn" id="removeMembersBtn" style="border-color:var(--stamp);color:var(--stamp);" disabled>Retirer la sélection (0)</button>
       <button type="button" class="btn btn-ghost" id="membersClose">Fermer</button>
     </div>
   </div>
@@ -462,10 +463,10 @@
     <input type="text" id="contactName" placeholder="Ton prénom">
   </div>
   <div class="field">
-    <label for="recipientSearch">Destinataire (facultatif)</label>
+    <label for="recipientSearch">Destinataire</label>
     <select id="contactRecipient" style="display:none;"><option value=""></option></select>
     <div class="country-picker" id="recipientPicker">
-      <input type="text" id="recipientSearch" placeholder="🔍 Taper un nom ou pseudo…" autocomplete="off">
+      <input type="text" id="recipientSearch" placeholder="🔍 Saisissez le nom ou le pseudo de votre choix…" autocomplete="off">
       <div class="country-list" id="recipientListBox"></div>
     </div>
   </div>
