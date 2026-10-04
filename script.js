@@ -1438,6 +1438,12 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ===================== Init ===================== */
+document.getElementById('openGuide').onclick = ()=>document.getElementById('guideOverlay').classList.add('open');
+document.getElementById('guideClose').onclick = ()=>document.getElementById('guideOverlay').classList.remove('open');
+document.getElementById('guideOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'guideOverlay') document.getElementById('guideOverlay').classList.remove('open');
+});
+
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
 document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
