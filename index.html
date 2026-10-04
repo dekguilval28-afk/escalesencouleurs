@@ -51,6 +51,7 @@
       <button class="btn btn-ghost btn-small" id="shareReqBtn" title="Demandes de partage" style="display:none;">🔔 <span id="shareReqCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="inboxBtn" title="Messages" style="display:none;">✉️ <span id="inboxCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="authBtn">Connexion</button>
+      <button class="btn btn-ghost btn-small" id="openGuide" title="Aide">❔ Aide</button>
       <button class="btn btn-ghost btn-small" id="shareSiteBtn" title="Partager le carnet">↗ Partager</button>
       <button class="btn btn-solid" id="openAdd">+ Ajouter un voyage</button>
     </div>
@@ -223,6 +224,41 @@
     <button type="button" class="btn-icon" id="openPrivacy">Confidentialité</button>
   </p>
 </footer>
+
+<!-- Guide d'utilisation -->
+<div class="overlay" id="guideOverlay">
+  <div class="modal legal-modal">
+    <h2>Comment ça marche</h2>
+    <div class="legal-text">
+      <h3>Créer un compte</h3>
+      <p>Clique sur "Connexion" en haut, puis "Créer un compte". Choisis un pseudo, indique ton email et un mot de passe. Tu es connecté(e) immédiatement.</p>
+
+      <h3>Ajouter un voyage</h3>
+      <p>Une fois connecté(e), clique sur "+ Ajouter un voyage". Cherche un ou plusieurs pays dans le champ de recherche, précise la ville et les dates, raconte ton souvenir et ajoute des photos. Choisir plusieurs pays crée une carte par pays, avec les mêmes dates, le même récit et les mêmes photos.</p>
+
+      <h3>Modifier ou supprimer une étape</h3>
+      <p>Les icônes ✎ et 🗑 n'apparaissent que sur tes propres voyages — personne d'autre ne peut les modifier.</p>
+
+      <h3>Aimer et partager une étape</h3>
+      <p>Le cœur ♡ ajoute un "j'aime". La flèche ↗ partage l'étape sur WhatsApp, Facebook, X, Instagram, TikTok ou copie simplement le lien. Partager le voyage de quelqu'un d'autre demande son accord : une demande lui est envoyée, visible via la cloche 🔔.</p>
+
+      <h3>Sélectionner plusieurs voyages</h3>
+      <p>Le bouton "☑ Sélectionner" au-dessus de la liste permet de cocher plusieurs de tes voyages pour les partager en un seul message.</p>
+
+      <h3>Laisser ou recevoir un message</h3>
+      <p>La bulle 💬 en bas à droite permet à n'importe qui de laisser un message — en général, ou à une personne précise en tapant son nom/pseudo. Les messages reçus apparaissent dans l'enveloppe ✉️ en haut, une fois connecté(e).</p>
+
+      <h3>Mon compte</h3>
+      <p>Clique sur ton pseudo en haut à droite pour changer de pseudo, voir tes demandes de partage envoyées, te déconnecter ou supprimer définitivement ton compte.</p>
+
+      <h3>Mot de passe oublié</h3>
+      <p>Depuis la fenêtre de connexion, clique sur "Mot de passe oublié ?" et suis le lien reçu par email.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="guideClose">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Mentions légales -->
 <div class="overlay" id="legalOverlay">
