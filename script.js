@@ -1444,6 +1444,62 @@ document.getElementById('guideOverlay').addEventListener('click', e=>{
   if(e.target.id === 'guideOverlay') document.getElementById('guideOverlay').classList.remove('open');
 });
 
+/* ===================== Notation du site ===================== */
+function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function safeSet(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
+
+function getVoterToken(){
+  let t = safeGet('site-voter-token');
+  if(!t){ t = crypto.randomUUID(); safeSet('site-voter-token', t); }
+  return t;
+}
+
+async function refreshRatingStats(){
+  const el = document.getElementById('ratingStats');
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.rpc('site_rating_stats');
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    const total = Number(row?.total || 0);
+    const avg = Number(row?.average || 0);
+    if(!total){
+      el.textContent = "Sois le premier à donner ton avis !";
+      return;
+    }
+    const avgTxt = avg.toLocaleString('fr-FR', { minimumFractionDigits:1, maximumFractionDigits:1 });
+    el.textContent = `★ ${avgTxt} / 5 · ${total} avis` + (safeGet('site-rating-score') ? ' · merci pour ta note !' : '');
+  }catch(e){}
+}
+
+function initRating(){
+  const box = document.getElementById('starRating');
+  const saved = safeGet('site-rating-score');
+  if(saved){
+    const r = box.querySelector(`input[value="${saved}"]`);
+    if(r) r.checked = true;
+  }
+  box.addEventListener('change', async (e)=>{
+    const score = Number(e.target.value);
+    if(!score) return;
+    safeSet('site-rating-score', String(score));
+    if(!sb){
+      document.getElementById('ratingStats').textContent = "Merci pour ta note !";
+      return;
+    }
+    try{
+      const { error } = await sb.rpc('rate_site', { p_token: getVoterToken(), p_score: score });
+      if(error) throw error;
+      toast("Merci pour ta note !");
+      refreshRatingStats();
+    }catch(err){
+      toast("Impossible d'enregistrer ta note pour le moment.");
+    }
+  });
+  refreshRatingStats();
+}
+initRating();
+
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
 document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
