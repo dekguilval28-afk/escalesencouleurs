@@ -214,6 +214,53 @@
     </div>
     <div id="timeline"></div>
   </section>
+  <section class="artisans-section" id="artisansSection" style="display:none;">
+    <div class="art-head">
+      <div>
+        <h2>Artisans et événements à découvrir</h2>
+        <p class="art-sub">Des artisans et des entreprises sélectionnés avec soin, et les événements qu'ils organisent.</p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-small" id="openAdminPanel" style="display:none;">🛠 Espace administrateur<span id="adminPendingBadge"></span></button>
+    </div>
+
+    <div class="spotlight" id="artSpotlight" style="display:none;">
+      <h3>À l'affiche</h3>
+      <div class="spot-list" id="artSpotList"></div>
+    </div>
+
+    <div class="art-toolbar">
+      <input type="search" id="artSearch" placeholder="🔎 Rechercher une entreprise, un artisan ou un événement..." autocomplete="off" aria-label="Rechercher une entreprise, un artisan ou un événement">
+      <button type="button" class="btn btn-ghost" id="artFiltersToggle" aria-expanded="false" aria-controls="artFilters">⚙ Filtres</button>
+    </div>
+    <div class="art-filters" id="artFilters">
+      <select id="artCategory" aria-label="Catégorie"><option value="">Catégorie</option></select>
+      <select id="artCity" aria-label="Localisation"><option value="">Localisation</option></select>
+      <select id="artRating" aria-label="Note">
+        <option value="">Note</option>
+        <option value="5">★★★★★ 5 étoiles</option>
+        <option value="4">★★★★ et plus</option>
+        <option value="3">★★★ et plus</option>
+        <option value="2">★★ et plus</option>
+        <option value="1">★ et plus</option>
+      </select>
+      <select id="artDate" aria-label="Date de l'événement"><option value="">Date de l'événement</option></select>
+      <select id="artSort" aria-label="Trier par">
+        <option value="relevance">Trier : pertinence</option>
+        <option value="az">Nom A → Z</option>
+        <option value="za">Nom Z → A</option>
+        <option value="rating">Meilleure note</option>
+        <option value="recent">Récemment ajoutées</option>
+        <option value="nearest">Événements les plus proches</option>
+        <option value="ongoing">Événements en cours</option>
+        <option value="soon">Événements à venir prochainement</option>
+      </select>
+      <button type="button" class="btn btn-ghost btn-small" id="artReset">Réinitialiser les filtres</button>
+    </div>
+
+    <p class="art-count" id="artCount" aria-live="polite"></p>
+    <div class="art-grid" id="artGrid"></div>
+    <p class="art-empty" id="artEmpty" style="display:none;">Aucun résultat ne correspond à votre recherche.</p>
+  </section>
 </main>
 
 <section class="rating-section wrap" id="ratingSection">
@@ -231,11 +278,235 @@
 <footer>
   <p>© <span id="footerYear">2026</span> Escales en couleurs</p>
   <p class="footer-links">
+    <span id="goArtisansWrap" style="display:none;"><button type="button" class="btn-icon" id="goArtisans">Artisans</button> ·</span>
     <button type="button" class="btn-icon" id="openLegal">Mentions légales</button>
     ·
     <button type="button" class="btn-icon" id="openPrivacy">Confidentialité</button>
   </p>
 </footer>
+
+<!-- Fiche détaillée d'une entreprise -->
+<div class="overlay" id="bizDetailOverlay">
+  <div class="modal wide biz-detail">
+    <button type="button" class="detail-close" id="bizDetailClose" aria-label="Fermer">×</button>
+    <div id="bizDetailBody"></div>
+  </div>
+</div>
+
+<!-- Espace administrateur (Artisans et événements) -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal wide">
+    <h2>Espace administrateur</h2>
+    <p class="adm-warn" id="adminWarn" style="display:none;">Les tables de cette rubrique n'existent pas encore : lance d'abord le script SQL dans Supabase.</p>
+    <div class="admin-tabs" role="tablist">
+      <button type="button" class="admin-tab active" data-tab="biz">Entreprises</button>
+      <button type="button" class="admin-tab" data-tab="cat">Catégories</button>
+      <button type="button" class="admin-tab" data-tab="ev">Événements <span id="adminEvBadge"></span></button>
+      <button type="button" class="admin-tab" data-tab="set">Réglages</button>
+    </div>
+    <div class="admin-pane" id="adminPane_biz"></div>
+    <div class="admin-pane" id="adminPane_cat" style="display:none;"></div>
+    <div class="admin-pane" id="adminPane_ev" style="display:none;"></div>
+    <div class="admin-pane" id="adminPane_set" style="display:none;"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="adminClose">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Formulaire entreprise -->
+<div class="overlay" id="bizFormOverlay">
+  <div class="modal wide">
+    <h2 id="bizFormTitle">Ajouter une entreprise</h2>
+    <form id="bizForm" novalidate>
+      <div class="field">
+        <label for="bizName">Nom de l'entreprise ou de l'artisan *</label>
+        <input type="text" id="bizName" maxlength="120" required>
+      </div>
+
+      <div class="field">
+        <label>📷 Photo de l'entreprise</label>
+        <div class="uploader">
+          <div class="up-preview" id="bizImgPrev"></div>
+          <div class="up-actions">
+            <label class="btn btn-ghost btn-small" for="bizImgFile">Choisir un fichier</label>
+            <input type="file" id="bizImgFile" accept="image/*" class="sr-only">
+            <button type="button" class="btn btn-ghost btn-small" id="bizImgImport" disabled>Télécharger / Importer</button>
+            <button type="button" class="btn-icon" id="bizImgRemove">Retirer</button>
+          </div>
+          <p class="up-status" id="bizImgStatus"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>🏷 Logo (facultatif)</label>
+        <div class="uploader">
+          <div class="up-preview up-small" id="bizLogoPrev"></div>
+          <div class="up-actions">
+            <label class="btn btn-ghost btn-small" for="bizLogoFile">Choisir un fichier</label>
+            <input type="file" id="bizLogoFile" accept="image/*" class="sr-only">
+            <button type="button" class="btn btn-ghost btn-small" id="bizLogoImport" disabled>Télécharger / Importer</button>
+            <button type="button" class="btn-icon" id="bizLogoRemove">Retirer</button>
+          </div>
+          <p class="up-status" id="bizLogoStatus"></p>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="bizActivity">Activité / secteur d'activité</label>
+        <input type="text" id="bizActivity" maxlength="120" placeholder="ex. Menuiserie sur mesure">
+      </div>
+      <div class="field">
+        <label>Catégories</label>
+        <div class="chip-picks" id="bizCats"></div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="bizCity">Ville ou zone géographique</label>
+          <input type="text" id="bizCity" maxlength="80">
+        </div>
+        <div class="field">
+          <label for="bizRating">Note</label>
+          <select id="bizRating">
+            <option value="">Aucune note</option>
+            <option value="5">★★★★★ 5/5</option>
+            <option value="4">★★★★ 4/5</option>
+            <option value="3">★★★ 3/5</option>
+            <option value="2">★★ 2/5</option>
+            <option value="1">★ 1/5</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="bizDesc">Description de l'entreprise</label>
+        <textarea id="bizDesc" maxlength="2000"></textarea>
+      </div>
+      <div class="field">
+        <label for="bizActDesc">Description de son activité</label>
+        <textarea id="bizActDesc" maxlength="2000"></textarea>
+      </div>
+      <div class="field">
+        <label for="bizContact">Coordonnées et informations utiles</label>
+        <textarea id="bizContact" maxlength="1000" placeholder="Téléphone, e-mail, adresse, horaires…"></textarea>
+      </div>
+      <div class="field">
+        <label for="bizWebsite">Site internet</label>
+        <input type="text" id="bizWebsite" placeholder="https://…" inputmode="url">
+      </div>
+      <div class="row2">
+        <div class="field"><label for="bizFacebook">Facebook</label><input type="text" id="bizFacebook" placeholder="lien ou @nom"></div>
+        <div class="field"><label for="bizInstagram">Instagram</label><input type="text" id="bizInstagram" placeholder="lien ou @nom"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="bizTiktok">TikTok</label><input type="text" id="bizTiktok" placeholder="lien ou @nom"></div>
+        <div class="field"><label for="bizOther">Autre lien</label><input type="text" id="bizOther" placeholder="https://…"></div>
+      </div>
+      <div class="field">
+        <label for="bizOwner">Compte artisan associé (autorisé à signaler des événements)</label>
+        <select id="bizOwner"><option value="">Aucun</option></select>
+      </div>
+      <label class="check-row"><input type="checkbox" id="bizPublished" checked> Publiée (visible par les visiteurs)</label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="bizFormCancel">Annuler</button>
+        <button type="submit" class="btn btn-solid" id="bizFormSave">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Formulaire événement (administrateur et artisan) -->
+<div class="overlay" id="evFormOverlay">
+  <div class="modal wide">
+    <h2 id="evFormTitle">Ajouter un événement</h2>
+    <p class="ev-intro" id="evIntro" style="display:none;">Ton événement sera relu par l'administrateur avant d'être publié.</p>
+    <form id="evForm" novalidate>
+      <div class="field">
+        <label for="evBusiness">Entreprise ou artisan *</label>
+        <select id="evBusiness" required></select>
+      </div>
+      <div class="field">
+        <label for="evTitle">Nom de l'événement *</label>
+        <input type="text" id="evTitle" maxlength="150" required>
+      </div>
+      <div class="field">
+        <label for="evDesc">Description de l'événement</label>
+        <textarea id="evDesc" maxlength="2000"></textarea>
+      </div>
+      <div class="field">
+        <label>📷 Photo ou visuel (facultatif)</label>
+        <div class="uploader">
+          <div class="up-preview" id="evImgPrev"></div>
+          <div class="up-actions">
+            <label class="btn btn-ghost btn-small" for="evImgFile">Choisir un fichier</label>
+            <input type="file" id="evImgFile" accept="image/*" class="sr-only">
+            <button type="button" class="btn btn-ghost btn-small" id="evImgImport" disabled>Télécharger / Importer</button>
+            <button type="button" class="btn-icon" id="evImgRemove">Retirer</button>
+          </div>
+          <p class="up-status" id="evImgStatus"></p>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="evStart">Début (date et heure) *</label><input type="datetime-local" id="evStart" required></div>
+        <div class="field"><label for="evEnd">Fin (si nécessaire)</label><input type="datetime-local" id="evEnd"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="evLocation">Lieu</label><input type="text" id="evLocation" maxlength="150"></div>
+        <div class="field"><label for="evCity">Ville ou zone</label><input type="text" id="evCity" maxlength="80"></div>
+      </div>
+      <div class="field">
+        <label for="evContact">Coordonnées ou lien utile</label>
+        <input type="text" id="evContact" maxlength="200">
+      </div>
+      <div class="field">
+        <label for="evLink">Site internet ou lien d'inscription</label>
+        <input type="text" id="evLink" placeholder="https://…" inputmode="url">
+      </div>
+      <div class="field">
+        <label for="evPractical">Informations pratiques</label>
+        <textarea id="evPractical" maxlength="1000"></textarea>
+      </div>
+
+      <div class="ev-admin-only" id="evAdminOnly">
+        <h3 class="adm-sub">Réservé à l'administrateur</h3>
+        <div class="row2">
+          <div class="field">
+            <label for="evStatus">Statut de validation</label>
+            <select id="evStatus">
+              <option value="approved">Publié (approuvé)</option>
+              <option value="pending">À valider</option>
+              <option value="correction">Correction demandée</option>
+              <option value="rejected">Refusé</option>
+            </select>
+          </div>
+          <div class="field"><label for="evNote">Message pour l'artisan (correction)</label><input type="text" id="evNote" maxlength="300"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label for="evDispFrom">Afficher à partir du</label><input type="datetime-local" id="evDispFrom"></div>
+          <div class="field"><label for="evDispUntil">Afficher jusqu'au</label><input type="datetime-local" id="evDispUntil"></div>
+        </div>
+        <label class="check-row"><input type="checkbox" id="evKeep"> Conserver l'affichage une fois l'événement terminé</label>
+        <label class="check-row"><input type="checkbox" id="evHidden"> Masquer cet événement</label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="evFormCancel">Annuler</button>
+        <button type="submit" class="btn btn-solid" id="evFormSave">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Espace artisan : mes événements -->
+<div class="overlay" id="myEventsOverlay">
+  <div class="modal wide">
+    <h2>Mes événements</h2>
+    <div class="adm-bar"><button type="button" class="btn btn-solid btn-small" id="myEvAdd">➕ Signaler un événement</button></div>
+    <div id="myEventsList"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="myEventsClose">Fermer</button>
+    </div>
+  </div>
+</div>
 
 <!-- Guide d'utilisation -->
 <div class="overlay" id="guideOverlay">
@@ -447,6 +718,7 @@
     </div>
     <button type="button" class="btn-icon" id="mySentReqLink" style="font-size:13px;padding:0 0 8px;display:block;">Voir mes demandes de partage envoyées</button>
     <button type="button" class="btn-icon" id="viewMembersLink" style="font-size:13px;padding:0 0 16px;display:none;">Voir la liste des membres inscrits</button>
+    <button type="button" class="btn-icon" id="myEventsLink" style="font-size:13px;padding:0 0 16px;display:none;">Mes événements (artisan)</button>
     <div class="modal-actions" style="justify-content:space-between;">
       <button type="button" class="btn btn-ghost" id="accountSignOut">Se déconnecter</button>
       <button type="button" class="btn" id="accountDelete" style="border-color:var(--stamp);color:var(--stamp);">Supprimer mon compte</button>
