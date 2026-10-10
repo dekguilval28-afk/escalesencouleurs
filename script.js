@@ -34,6 +34,7 @@ function updateContentGate(){
   document.getElementById('gatePrompt').style.display = showContent ? 'none' : 'block';
   document.getElementById('gatedContent').style.display = showContent ? 'block' : 'none';
   document.getElementById('timelineSection').style.display = showContent ? 'block' : 'none';
+  try{ updateLanding(); }catch(e){ document.body.classList.remove('auth-pending'); }
 }
 document.getElementById('gateLoginBtn').onclick = ()=>{
   authMode = 'login';
@@ -52,6 +53,7 @@ function updateAuthUI(){
   }
   updateContentGate();
   applyEditableGate();
+  try{ artisansOnAuth(); }catch(e){}
 }
 
 const OWNER_EMAIL = "dekguilval28@gmail.com";
@@ -284,7 +286,7 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
   submitBtn.disabled = true;
   try{
     if(authMode === 'signup'){
-      const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo } } });
+      const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo }, emailRedirectTo: SITE_URL + '/' } });
       if(error) throw error;
       if(!data.session){
         errEl.textContent = "Compte créé. Essaie de te connecter.";
@@ -319,7 +321,7 @@ document.getElementById('authForgotPassword').onclick = async ()=>{
   }
   try{
     const { error } = await sb.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin + window.location.pathname
+      redirectTo: SITE_URL + '/'
     });
     if(error) throw error;
     errEl.style.color = 'var(--sage)';
@@ -1444,6 +1446,1172 @@ document.getElementById('guideOverlay').addEventListener('click', e=>{
   if(e.target.id === 'guideOverlay') document.getElementById('guideOverlay').classList.remove('open');
 });
 
+/* ===================== Artisans et événements ===================== */
+const artEl = (id) => document.getElementById(id);
+const STAR_PATH = "M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z";
+const DAY_MS = 86400000;
+const ART = {
+  categories: [], businesses: [], events: [], settings: {}, profiles: [],
+  loadedFor: undefined, loadedOnce: false, loading: false, queued: false, missingTables: false,
+  filters: { q:'', cat:'', city:'', rating:'', date:'', sort:'relevance' },
+  flash: null, lastError: '', editingBiz: null, editingEv: null, evMode: 'admin', adminTab: 'biz', uploaders: {}
+};
+
+function escapeAttr(s){
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function isOwnerUser(){ return !!(sb && currentUser && currentUser.email === OWNER_EMAIL); }
+function artisanFeatureOn(){ return ART.settings.artisan_events_enabled === 'true'; }
+function friendlyDbError(err){
+  const m = (err && err.message) || '';
+  if(/schema cache|does not exist|relation/i.test(m)) return "Les tables ne sont pas encore créées : lance d'abord le script SQL dans Supabase.";
+  if(/row-level security|permission|policy/i.test(m)) return "Action refusée (droits insuffisants).";
+  return m || "Une erreur est survenue.";
+}
+function openOv(id){ artEl(id).classList.add('open'); }
+function closeOv(id){ artEl(id).classList.remove('open'); }
+
+/* ---------- Liens ---------- */
+function safeUrl(raw){
+  const v = (raw || '').trim();
+  if(!v) return null;
+  const withProto = /^[a-z][a-z0-9+.-]*:/i.test(v) ? v : 'https://' + v;
+  try{
+    const u = new URL(withProto);
+    if(u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    if(!u.hostname.includes('.')) return null;
+    return u.href;
+  }catch(e){ return null; }
+}
+const SOCIAL_BASE = { facebook:'https://www.facebook.com/', instagram:'https://www.instagram.com/', tiktok:'https://www.tiktok.com/@' };
+const SOCIAL_HINT = {
+  facebook: 'ex. facebook.com/tapage, ou juste @tonnom',
+  instagram: 'ex. instagram.com/tonnom, ou juste @tonnom',
+  tiktok: 'ex. tiktok.com/@tonnom, ou juste @tonnom',
+  other: 'ex. https://monsite.fr'
+};
+function normalizeSocial(kind, raw){
+  const v = (raw || '').trim();
+  if(!v) return null;
+  const base = SOCIAL_BASE[kind];
+  // un simple nom d'utilisateur (avec ou sans @) est accepté ; sinon on attend un lien
+  const isHandle = /^@?[A-Za-z0-9_.\-]+$/.test(v) && !/^www\./i.test(v) && !/\.(com|fr|me|be|net|org|io|co|ly|app|tv|link)$/i.test(v);
+  if(base && isHandle) return base + v.replace(/^@/, '');
+  return safeUrl(v);
+}
+
+/* ---------- Dates et statut des événements ---------- */
+function sameDay(a, b){ return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+function fmtDay(d, withYear = true){
+  return d.toLocaleDateString('fr-FR', withYear ? { day:'numeric', month:'long', year:'numeric' } : { day:'numeric', month:'long' });
+}
+function fmtTime(d){ return String(d.getHours()).padStart(2, '0') + 'h' + String(d.getMinutes()).padStart(2, '0'); }
+function eventBounds(ev){
+  const start = new Date(ev.start_at);
+  let end = ev.end_at ? new Date(ev.end_at) : null;
+  if(!end){ end = new Date(start); end.setHours(23, 59, 59, 999); }
+  return { start, end };
+}
+function eventState(ev, now = new Date()){
+  const { start, end } = eventBounds(ev);
+  if(now < start) return 'upcoming';
+  if(now <= end) return 'ongoing';
+  return 'finished';
+}
+function daysUntil(date, now = new Date()){
+  const a = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const b = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.round((b - a) / DAY_MS);
+}
+function formatEventDates(ev){
+  const s = new Date(ev.start_at);
+  const e = ev.end_at ? new Date(ev.end_at) : null;
+  if(!e || sameDay(s, e)){
+    let t = 'Le ' + fmtDay(s) + ' à ' + fmtTime(s);
+    if(e) t += ' – ' + fmtTime(e);
+    return t;
+  }
+  if(s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) return 'Du ' + s.getDate() + ' au ' + fmtDay(e);
+  return 'Du ' + fmtDay(s) + ' au ' + fmtDay(e);
+}
+function eventBadge(ev, now = new Date()){
+  const st = eventState(ev, now);
+  if(st === 'ongoing') return { cls:'ongoing', txt:'🟢 Événement en cours' };
+  if(st === 'finished') return { cls:'finished', txt:'⚪ Événement terminé' };
+  const d = daysUntil(new Date(ev.start_at), now);
+  if(d <= 0) return { cls:'soon', txt:"🟠 Événement aujourd'hui" };
+  if(d === 1) return { cls:'soon', txt:'🟠 Événement demain' };
+  if(d <= 7) return { cls:'soon', txt:'🟠 Événement à venir dans ' + d + ' jours' };
+  if(d <= 14) return { cls:'upcoming', txt:'🔵 Événement à venir dans ' + d + ' jours' };
+  if(d <= 60) return { cls:'upcoming', txt:'🔵 Événement à venir dans ' + Math.round(d / 7) + ' semaines' };
+  return { cls:'upcoming', txt:'🔵 Événement à venir dans ' + Math.round(d / 30) + ' mois' };
+}
+function eventBadgeHTML(ev, now){
+  const b = eventBadge(ev, now);
+  return '<span class="ev-badge ' + b.cls + '">' + escapeHtml(b.txt) + '</span>';
+}
+function eventPlace(ev){ return [ev.location, ev.city].filter(Boolean).join(', '); }
+
+/* ---------- Visibilité publique ---------- */
+function isEventPublic(ev, now = new Date()){
+  if(ev.status !== 'approved' || ev.hidden) return false;
+  if(ev.display_from && now < new Date(ev.display_from)) return false;
+  if(ev.display_until && now > new Date(ev.display_until)) return false;
+  if(eventState(ev, now) === 'finished' && !ev.keep_after_end) return false;
+  return true;
+}
+function publicBusinesses(){ return ART.businesses.filter(b => b.published); }
+function visibleEvents(biz, now = new Date()){
+  return ART.events.filter(ev => ev.business_id === biz.id && isEventPublic(ev, now));
+}
+function cmpEvents(a, b, now){
+  const rank = (ev) => { const s = eventState(ev, now); return s === 'ongoing' ? 0 : (s === 'upcoming' ? 1 : 2); };
+  const ra = rank(a), rb = rank(b);
+  if(ra !== rb) return ra - rb;
+  const ta = new Date(a.start_at).getTime(), tb = new Date(b.start_at).getTime();
+  return ra === 2 ? tb - ta : ta - tb;
+}
+function pickFeaturedEvent(evs, now){
+  if(!evs.length) return null;
+  return evs.slice().sort((a, b) => cmpEvents(a, b, now))[0];
+}
+function eventDistance(ev, now){
+  if(!ev) return Infinity;
+  const s = eventState(ev, now);
+  if(s === 'ongoing') return 0;
+  if(s === 'upcoming') return new Date(ev.start_at) - now;
+  return Infinity;
+}
+function matchesDateFilter(ev, key, now){
+  const s = eventState(ev, now);
+  const start = new Date(ev.start_at);
+  if(key === 'ongoing') return s === 'ongoing';
+  if(key === 'upcoming') return s === 'upcoming';
+  if(key === 'week') return s === 'ongoing' || (s === 'upcoming' && start - now <= 7 * DAY_MS);
+  if(key === 'months') return s === 'ongoing' || (s === 'upcoming' && start - now <= 90 * DAY_MS);
+  if(key === 'past') return s === 'finished';
+  return true;
+}
+
+/* ---------- Chargement des données ---------- */
+async function loadArtisansData(force){
+  if(!sb) return;
+  const uid = currentUser ? currentUser.id : null;
+  if(!force && ART.loadedOnce && ART.loadedFor === uid) return;
+  if(ART.loading){ ART.queued = true; return; }
+  ART.loading = true;
+  try{
+    const [cats, biz, evs, sets] = await Promise.all([
+      sb.from('categories').select('*').order('name', { ascending:true }),
+      sb.from('businesses').select('*, business_categories(category_id)').order('created_at', { ascending:false }),
+      sb.from('events').select('*').order('start_at', { ascending:true }),
+      sb.from('site_settings').select('*')
+    ]);
+    ART.missingTables = !!(biz.error && /schema cache|does not exist|relation/i.test(biz.error.message || ''));
+    ART.categories = cats.data || [];
+    ART.businesses = (biz.data || []).map(b => ({ ...b, category_ids: (b.business_categories || []).map(x => x.category_id) }));
+    ART.events = evs.data || [];
+    ART.settings = Object.fromEntries((sets.data || []).map(r => [r.key, r.value]));
+    ART.loadedFor = uid;
+    ART.loadedOnce = true;
+  }catch(e){ /* on garde les données précédentes */ }
+  finally{ ART.loading = false; }
+  renderArtisans();
+  updateArtisanAccountUI();
+  renderAdmin();
+  renderMyEvents();
+  if(ART.queued){ ART.queued = false; loadArtisansData(true); }
+}
+function artisansOnAuth(){
+  if(!sb) return;
+  const uid = currentUser ? currentUser.id : null;
+  if(!ART.loadedOnce || ART.loadedFor !== uid) loadArtisansData(true);
+  else { renderArtisans(); updateArtisanAccountUI(); }
+}
+
+/* ---------- Affichage public ---------- */
+function starsHTML(n){
+  if(!n) return '';
+  let s = '';
+  for(let i = 1; i <= 5; i++) s += '<svg class="star' + (i <= n ? ' on' : '') + '" viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH + '"/></svg>';
+  return '<span class="stars-ro" role="img" aria-label="Note : ' + n + ' sur 5">' + s + '<span class="stars-num">' + n + '/5</span></span>';
+}
+function setOptions(sel, options, current){
+  sel.innerHTML = options.map(([v, l]) => '<option value="' + escapeAttr(v) + '">' + escapeHtml(l) + '</option>').join('');
+  const ok = options.some(([v]) => v === current);
+  sel.value = ok ? current : '';
+  return sel.value;
+}
+function rebuildFilterOptions(){
+  const now = new Date();
+  const pubs = publicBusinesses();
+  const used = new Set();
+  pubs.forEach(b => b.category_ids.forEach(id => used.add(id)));
+  const cats = ART.categories.filter(c => used.has(c.id));
+  const cities = new Map();
+  const addCity = (c) => { const v = (c || '').trim(); if(v) cities.set(normalizeText(v), v); };
+  pubs.forEach(b => { addCity(b.city); visibleEvents(b, now).forEach(e => addCity(e.city)); });
+  const hasPast = pubs.some(b => visibleEvents(b, now).some(e => eventState(e, now) === 'finished'));
+
+  ART.filters.cat = setOptions(artEl('artCategory'), [['', 'Catégorie']].concat(cats.map(c => [c.id, c.name])), ART.filters.cat);
+  ART.filters.city = setOptions(artEl('artCity'), [['', 'Localisation']].concat(Array.from(cities.values()).sort((a, b) => a.localeCompare(b, 'fr')).map(c => [c, c])), ART.filters.city);
+  const dateOpts = [['', "Date de l'événement"], ['ongoing', 'Événements en cours'], ['upcoming', 'Événements à venir'], ['week', 'Dans les prochains jours (7 jours)'], ['months', 'Dans les prochains mois (3 mois)']];
+  if(hasPast) dateOpts.push(['past', 'Événements passés']);
+  ART.filters.date = setOptions(artEl('artDate'), dateOpts, ART.filters.date);
+}
+function renderSpotlight(){
+  const now = new Date();
+  const items = [];
+  publicBusinesses().forEach(b => visibleEvents(b, now).forEach(ev => {
+    const st = eventState(ev, now);
+    if(st === 'ongoing' || (st === 'upcoming' && daysUntil(new Date(ev.start_at), now) <= 14)) items.push({ b, ev });
+  }));
+  items.sort((x, y) => cmpEvents(x.ev, y.ev, now));
+  const box = artEl('artSpotlight');
+  if(!items.length){ box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  artEl('artSpotList').innerHTML = items.slice(0, 6).map(({ b, ev }) =>
+    '<button type="button" class="spot-card" data-biz="' + escapeAttr(b.id) + '">' + eventBadgeHTML(ev, now) +
+    '<span class="spot-title">' + escapeHtml(ev.title) + '</span>' +
+    '<span class="spot-meta">' + escapeHtml(b.name) + ' · ' + escapeHtml(formatEventDates(ev)) + '</span></button>'
+  ).join('');
+}
+function computeArtisanResults(now){
+  const f = ART.filters;
+  const tokens = normalizeText((f.q || '').trim()).split(/\s+/).filter(Boolean);
+  const out = [];
+  for(const b of publicBusinesses()){
+    const evs = visibleEvents(b, now);
+    const catNames = b.category_ids.map(id => (ART.categories.find(c => c.id === id) || {}).name).filter(Boolean);
+    if(f.cat && !b.category_ids.includes(f.cat)) continue;
+    if(f.rating && !(b.rating >= Number(f.rating))) continue;
+    if(f.city){
+      const c = normalizeText(f.city);
+      if(!(normalizeText(b.city || '') === c || evs.some(e => normalizeText(e.city || '') === c))) continue;
+    }
+    let pool = evs;
+    if(f.date){
+      pool = evs.filter(e => matchesDateFilter(e, f.date, now));
+      if(!pool.length) continue;
+    }
+    let score = 0;
+    if(tokens.length){
+      const bizText = normalizeText([b.name, b.activity, b.activity_description, b.description, b.city].concat(catNames).filter(Boolean).join(' '));
+      const evTexts = evs.map(e => normalizeText([e.title, e.description, e.location, e.city].filter(Boolean).join(' ')));
+      const all = bizText + ' ' + evTexts.join(' ');
+      if(!tokens.every(t => all.includes(t))) continue;
+      const nameN = normalizeText(b.name || '');
+      const actN = normalizeText(b.activity || '');
+      tokens.forEach(t => {
+        if(nameN.includes(t)) score += 5;
+        if(actN.includes(t)) score += 3;
+        if(bizText.includes(t)) score += 2;
+        if(evTexts.some(x => x.includes(t))) score += 1;
+      });
+      const hit = pool.filter(e => { const tx = normalizeText([e.title, e.description, e.location, e.city].filter(Boolean).join(' ')); return tokens.some(t => tx.includes(t)); });
+      if(hit.length) pool = hit;
+    }
+    const featured = pickFeaturedEvent(pool, now);
+    out.push({ b, evs, featured, score, catNames, dist: eventDistance(featured, now) });
+  }
+  const recency = (x, y) => new Date(y.b.created_at || 0) - new Date(x.b.created_at || 0);
+  const cmpNum = (a, b) => (a === b ? 0 : (a < b ? -1 : 1));
+  const byName = (x, y) => (x.b.name || '').localeCompare(y.b.name || '', 'fr', { sensitivity:'base' });
+  switch(f.sort){
+    case 'az': out.sort(byName); break;
+    case 'za': out.sort((x, y) => byName(y, x)); break;
+    case 'rating': out.sort((x, y) => ((y.b.rating || 0) - (x.b.rating || 0)) || recency(x, y)); break;
+    case 'recent': out.sort(recency); break;
+    case 'nearest': out.sort((x, y) => cmpNum(x.dist, y.dist) || recency(x, y)); break;
+    case 'ongoing': out.sort((x, y) => cmpNum(x.dist === 0 ? 0 : 1, y.dist === 0 ? 0 : 1) || recency(x, y)); break;
+    case 'soon': out.sort((x, y) => cmpNum(x.dist <= 14 * DAY_MS ? x.dist : Infinity, y.dist <= 14 * DAY_MS ? y.dist : Infinity) || recency(x, y)); break;
+    default: out.sort((x, y) => (y.score - x.score) || recency(x, y));
+  }
+  return out;
+}
+function mediaHTML(b, big){
+  return b.image_url
+    ? '<img' + (big ? ' class="det-img"' : '') + ' src="' + escapeAttr(b.image_url) + '" alt="' + escapeAttr(b.name) + '" loading="lazy" draggable="false">'
+    : '<div class="art-ph" aria-hidden="true">' + escapeHtml((b.name || '?').trim().charAt(0).toUpperCase()) + '</div>';
+}
+function cardHTML(r, now){
+  const b = r.b, ev = r.featured;
+  const logo = b.logo_url ? '<img class="art-logo" src="' + escapeAttr(b.logo_url) + '" alt="Logo de ' + escapeAttr(b.name) + '" loading="lazy" draggable="false">' : '';
+  const chips = r.catNames.slice(0, 3).map(n => '<span class="chip">' + escapeHtml(n) + '</span>').join('');
+  const sub = [b.activity, b.city].filter(Boolean).map(escapeHtml).join(' · ');
+  const desc = b.description || b.activity_description || '';
+  let evBlock = '';
+  if(ev){
+    const place = eventPlace(ev);
+    evBlock = '<div class="art-event">' + eventBadgeHTML(ev, now) +
+      '<div class="art-event-title">' + escapeHtml(ev.title) + '</div>' +
+      '<div class="art-event-meta">📅 ' + escapeHtml(formatEventDates(ev)) + '</div>' +
+      (place ? '<div class="art-event-meta">📍 ' + escapeHtml(place) + '</div>' : '') +
+      (r.evs.length > 1 ? '<div class="art-event-meta">＋ ' + (r.evs.length - 1) + ' autre' + (r.evs.length > 2 ? 's' : '') + ' événement' + (r.evs.length > 2 ? 's' : '') + ' dans la fiche</div>' : '') + '</div>';
+  }
+  return '<article class="art-card">' +
+    '<button type="button" class="art-media" data-biz="' + escapeAttr(b.id) + '" aria-label="Voir la fiche de ' + escapeAttr(b.name) + '">' + mediaHTML(b, false) + logo + '</button>' +
+    '<div class="art-body"><h3>' + escapeHtml(b.name) + '</h3>' +
+    (sub ? '<p class="art-sub2">' + sub + '</p>' : '') +
+    (chips ? '<div class="chips">' + chips + '</div>' : '') +
+    (desc ? '<p class="art-desc">' + escapeHtml(desc) + '</p>' : '') +
+    (b.rating ? '<div>' + starsHTML(b.rating) + '</div>' : '') +
+    evBlock +
+    '<button type="button" class="btn btn-ghost btn-small art-more" data-biz="' + escapeAttr(b.id) + '">En savoir plus</button>' +
+    '</div></article>';
+}
+function renderArtisanGrid(){
+  const now = new Date();
+  const results = computeArtisanResults(now);
+  const grid = artEl('artGrid'), empty = artEl('artEmpty'), count = artEl('artCount');
+  if(!results.length){
+    grid.innerHTML = '';
+    count.textContent = '';
+    empty.textContent = publicBusinesses().length
+      ? 'Aucun résultat ne correspond à votre recherche.'
+      : "Aucune fiche publiée pour l'instant. Ajoute ta première entreprise depuis l'espace administrateur.";
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  count.textContent = results.length === 1 ? '1 résultat' : results.length + ' résultats';
+  grid.innerHTML = results.map(r => cardHTML(r, now)).join('');
+}
+function pendingCount(){ return ART.events.filter(e => e.status === 'pending').length; }
+function renderArtisans(){
+  const section = artEl('artisansSection');
+  const admin = isOwnerUser();
+  const pubs = publicBusinesses();
+  const visible = !!(sb && (pubs.length || admin));
+  section.style.display = visible ? 'block' : 'none';
+  artEl('goArtisansWrap').style.display = visible ? 'inline' : 'none';
+  if(!visible) return;
+  artEl('openAdminPanel').style.display = admin ? 'inline-block' : 'none';
+  const p = pendingCount();
+  artEl('adminPendingBadge').textContent = (admin && p) ? ' (' + p + ' à valider)' : '';
+  rebuildFilterOptions();
+  renderSpotlight();
+  renderArtisanGrid();
+}
+
+/* ---------- Fiche détaillée ---------- */
+function linkHTML(label, raw, kind){
+  const href = kind ? normalizeSocial(kind, raw) : safeUrl(raw);
+  return href ? '<a href="' + escapeAttr(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>' : '';
+}
+function openBizDetail(id){
+  const b = ART.businesses.find(x => x.id === id);
+  if(!b) return;
+  const now = new Date();
+  const evs = visibleEvents(b, now).sort((x, y) => cmpEvents(x, y, now));
+  const catNames = b.category_ids.map(cid => (ART.categories.find(c => c.id === cid) || {}).name).filter(Boolean);
+  const soc = b.socials || {};
+  const links = [
+    linkHTML('🌐 Site internet', b.website),
+    linkHTML('Facebook', soc.facebook, 'facebook'),
+    linkHTML('Instagram', soc.instagram, 'instagram'),
+    linkHTML('TikTok', soc.tiktok, 'tiktok'),
+    linkHTML('Autre lien', soc.other)
+  ].filter(Boolean).join('');
+  const evHTML = evs.length ? evs.map(ev => {
+    const place = eventPlace(ev);
+    const link = linkHTML("Site / inscription", ev.link);
+    return '<div class="det-event">' + eventBadgeHTML(ev, now) +
+      '<h4>' + escapeHtml(ev.title) + '</h4>' +
+      '<p>📅 ' + escapeHtml(formatEventDates(ev)) + '</p>' +
+      (place ? '<p>📍 ' + escapeHtml(place) + '</p>' : '') +
+      (ev.image_url ? '<img src="' + escapeAttr(ev.image_url) + '" alt="' + escapeAttr(ev.title) + '" loading="lazy" draggable="false">' : '') +
+      (ev.description ? '<p class="det-text">' + escapeHtml(ev.description) + '</p>' : '') +
+      (ev.practical_info ? '<p class="det-text"><b>Infos pratiques :</b> ' + escapeHtml(ev.practical_info) + '</p>' : '') +
+      (ev.contact ? '<p class="det-text"><b>Contact :</b> ' + escapeHtml(ev.contact) + '</p>' : '') +
+      (link ? '<div class="det-links">' + link + '</div>' : '') + '</div>';
+  }).join('') : '<p class="det-meta">Aucun événement prévu pour le moment.</p>';
+  artEl('bizDetailBody').innerHTML =
+    '<div class="det-media">' + mediaHTML(b, true) +
+      (b.logo_url ? '<img class="det-logo" src="' + escapeAttr(b.logo_url) + '" alt="Logo de ' + escapeAttr(b.name) + '" draggable="false">' : '') + '</div>' +
+    '<div class="det-body"><h2>' + escapeHtml(b.name) + '</h2>' +
+      (catNames.length ? '<div class="chips">' + catNames.map(n => '<span class="chip">' + escapeHtml(n) + '</span>').join('') + '</div>' : '') +
+      '<p class="det-meta">' + [b.activity, b.city ? '📍 ' + b.city : ''].filter(Boolean).map(escapeHtml).join(' · ') + '</p>' +
+      (b.rating ? '<div>' + starsHTML(b.rating) + '</div>' : '') +
+      (b.description ? '<h3>À propos</h3><p class="det-text">' + escapeHtml(b.description) + '</p>' : '') +
+      (b.activity_description ? '<h3>Son activité</h3><p class="det-text">' + escapeHtml(b.activity_description) + '</p>' : '') +
+      (b.contact ? '<h3>Coordonnées</h3><p class="det-text">' + escapeHtml(b.contact) + '</p>' : '') +
+      (links ? '<div class="det-links">' + links + '</div>' : '') +
+      '<h3>Événements</h3>' + evHTML + '</div>';
+  openOv('bizDetailOverlay');
+}
+
+/* ---------- Envoi d'images ---------- */
+function prepareImage(file, maxDim, keepAlpha){
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const ctx = c.getContext('2d');
+      if(!keepAlpha){ ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h); }
+      ctx.drawImage(img, 0, 0, w, h);
+      c.toBlob(b => b ? resolve(b) : reject(new Error('blob')), keepAlpha ? 'image/png' : 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('image')); };
+    img.src = url;
+  });
+}
+function makeUploader(cfg){
+  const st = { url: null, blob: null, previewUrl: null };
+  const el = (id) => artEl(id);
+  const fileInput = el(cfg.file), preview = el(cfg.preview), importBtn = el(cfg.importBtn), removeBtn = el(cfg.remove), status = el(cfg.status);
+  function show(src){
+    preview.innerHTML = src ? '<img src="' + escapeAttr(src) + '" alt="Aperçu">' : '<span class="up-empty">Aucune image</span>';
+  }
+  function dropPreview(){ if(st.previewUrl){ URL.revokeObjectURL(st.previewUrl); st.previewUrl = null; } }
+  async function onFile(){
+    const file = fileInput.files && fileInput.files[0];
+    if(!file) return;
+    if(!/^image\//.test(file.type)){ status.textContent = "Ce fichier n'est pas une image."; fileInput.value = ''; return; }
+    status.textContent = "Préparation de l'image…";
+    try{
+      const blob = await prepareImage(file, cfg.maxDim || 1600, !!cfg.keepAlpha);
+      dropPreview();
+      st.blob = blob;
+      st.previewUrl = URL.createObjectURL(blob);
+      show(st.previewUrl);
+      importBtn.disabled = false;
+      status.textContent = "Aperçu prêt. Clique sur « Télécharger / Importer » pour l'enregistrer (ou valide directement le formulaire).";
+    }catch(e){ status.textContent = 'Impossible de lire cette image.'; }
+    fileInput.value = '';
+  }
+  async function doImport(){
+    if(!st.blob) return st.url;
+    importBtn.disabled = true;
+    status.textContent = 'Envoi en cours…';
+    const ext = st.blob.type === 'image/png' ? 'png' : 'jpg';
+    const path = cfg.prefix() + crypto.randomUUID() + '.' + ext;
+    const { error } = await sb.storage.from('business-images').upload(path, st.blob, { contentType: st.blob.type });
+    if(error){
+      importBtn.disabled = false;
+      status.textContent = "Échec de l'envoi : " + friendlyDbError(error);
+      throw error;
+    }
+    const { data } = sb.storage.from('business-images').getPublicUrl(path);
+    dropPreview();
+    st.url = data.publicUrl;
+    st.blob = null;
+    show(st.url);
+    importBtn.disabled = true;
+    status.textContent = '✔ Image importée.';
+    return st.url;
+  }
+  fileInput.addEventListener('change', onFile);
+  importBtn.addEventListener('click', () => { doImport().catch(() => {}); });
+  removeBtn.addEventListener('click', () => {
+    dropPreview(); st.url = null; st.blob = null; show(null); importBtn.disabled = true;
+    status.textContent = 'Image retirée (enregistre pour confirmer).';
+  });
+  show(null);
+  return {
+    reset(url){ dropPreview(); st.url = url || null; st.blob = null; show(st.url); importBtn.disabled = true; status.textContent = ''; fileInput.value = ''; },
+    async ensureUploaded(){ return st.blob ? await doImport() : st.url; }
+  };
+}
+
+/* ---------- Administration : liste et actions ---------- */
+async function dbRun(builder, okMsg){
+  const { error } = await builder;
+  if(error){ ART.lastError = friendlyDbError(error); toast(ART.lastError); return false; }
+  if(okMsg) toast(okMsg);
+  return true;
+}
+function newId(){ return crypto.randomUUID(); }
+function renderAdmin(){
+  const o = artEl('adminOverlay');
+  if(!o.classList.contains('open')) return;
+  o.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === ART.adminTab));
+  ['biz', 'cat', 'ev', 'set'].forEach(k => { artEl('adminPane_' + k).style.display = (k === ART.adminTab ? 'block' : 'none'); });
+  const p = pendingCount();
+  artEl('adminEvBadge').textContent = p ? '(' + p + ')' : '';
+  artEl('adminWarn').style.display = ART.missingTables ? 'block' : 'none';
+  if(ART.adminTab === 'biz') renderAdminBiz();
+  else if(ART.adminTab === 'cat') renderAdminCat();
+  else if(ART.adminTab === 'ev') renderAdminEv();
+  else renderAdminSet();
+  afterAdminRender();
+}
+function flashBanner(tab){
+  return (ART.flash && ART.flash.tab === tab) ? '<p class="adm-flash" role="status">' + escapeHtml(ART.flash.msg) + '</p>' : '';
+}
+function flashClass(id){ return (ART.flash && ART.flash.id === id) ? ' flash' : ''; }
+function afterAdminRender(){
+  if(!ART.flash || ART.flash.tab !== ART.adminTab) return;
+  const target = document.querySelector('#adminOverlay .adm-row.flash') || document.querySelector('#adminOverlay .adm-flash');
+  if(target) target.scrollIntoView({ block:'center', behavior:'smooth' });
+  ART.flash = null;
+}
+function renderAdminBiz(){
+  const rows = ART.businesses.map(b => {
+    const n = ART.events.filter(e => e.business_id === b.id).length;
+    const thumb = b.image_url ? '<img src="' + escapeAttr(b.image_url) + '" alt="">' : '<span>' + escapeHtml((b.name || '?').charAt(0).toUpperCase()) + '</span>';
+    const meta = [b.activity, b.city, b.rating ? '★ ' + b.rating + '/5' : null, n + ' événement' + (n > 1 ? 's' : '')].filter(Boolean).map(escapeHtml).join(' · ');
+    const id = escapeAttr(b.id);
+    return '<div class="adm-row' + flashClass(b.id) + '"><div class="adm-thumb">' + thumb + '</div>' +
+      '<div class="adm-info"><span><b>' + escapeHtml(b.name) + '</b><span class="pill ' + (b.published ? 'ok' : 'off') + '">' + (b.published ? 'Publiée' : 'Masquée') + '</span></span><small>' + meta + '</small></div>' +
+      '<div class="adm-btns">' +
+        '<button type="button" class="btn btn-ghost btn-small" data-act="biz-edit" data-id="' + id + '">✏️ Modifier</button>' +
+        '<button type="button" class="btn btn-ghost btn-small" data-act="biz-toggle" data-id="' + id + '">👁 ' + (b.published ? 'Masquer' : 'Publier') + '</button>' +
+        '<button type="button" class="btn btn-ghost btn-small" data-act="biz-del" data-id="' + id + '" aria-label="Supprimer">🗑</button>' +
+      '</div></div>';
+  }).join('');
+  artEl('adminPane_biz').innerHTML = '<div class="adm-bar"><button type="button" class="btn btn-solid btn-small" data-act="biz-add">➕ Ajouter une entreprise</button></div>' +
+    flashBanner('biz') + (rows || '<p class="adm-empty">Aucune entreprise pour l\u2019instant.</p>');
+}
+function renderAdminCat(){
+  const rows = ART.categories.map(c => {
+    const n = ART.businesses.filter(b => b.category_ids.includes(c.id)).length;
+    const id = escapeAttr(c.id);
+    return '<div class="adm-row" data-cat="' + id + '"><div class="adm-info"><input type="text" class="adm-input" value="' + escapeAttr(c.name) + '" maxlength="60" aria-label="Nom de la catégorie"><small>' + n + ' entreprise' + (n > 1 ? 's' : '') + '</small></div>' +
+      '<div class="adm-btns"><button type="button" class="btn btn-ghost btn-small" data-act="cat-save" data-id="' + id + '">💾 Enregistrer</button>' +
+      '<button type="button" class="btn btn-ghost btn-small" data-act="cat-del" data-id="' + id + '" aria-label="Supprimer">🗑</button></div></div>';
+  }).join('');
+  artEl('adminPane_cat').innerHTML = '<div class="adm-bar"><input type="text" id="newCatName" class="adm-input" placeholder="Nouvelle catégorie…" maxlength="60"><button type="button" class="btn btn-solid btn-small" data-act="cat-add">➕ Ajouter</button></div>' +
+    (rows || '<p class="adm-empty">Aucune catégorie pour l\u2019instant.</p>');
+}
+const EV_STATUS = {
+  pending: ['⏳ À valider', 'warn'], approved: ['✅ Approuvé', 'ok'],
+  rejected: ['❌ Refusé', 'off'], correction: ['✏️ Correction demandée', 'warn']
+};
+function notShownReason(ev){
+  const now = new Date();
+  if(ev.status !== 'approved' || ev.hidden || isEventPublic(ev, now)) return '';
+  if(ev.display_from && now < new Date(ev.display_from)) return 'Pas encore affiché';
+  if(ev.display_until && now > new Date(ev.display_until)) return "Période d\u2019affichage terminée";
+  if(eventState(ev, now) === 'finished' && !ev.keep_after_end) return 'Terminé : non affiché';
+  return 'Non affiché';
+}
+function adminEventRow(ev){
+  const b = ART.businesses.find(x => x.id === ev.business_id);
+  const id = escapeAttr(ev.id);
+  const [lab, cls] = EV_STATUS[ev.status] || ['?', 'off'];
+  const btn = (act, txt) => '<button type="button" class="btn btn-ghost btn-small" data-act="' + act + '" data-id="' + id + '">' + txt + '</button>';
+  let actions = btn('ev-edit', '✏️ Modifier');
+  if(ev.status === 'pending') actions = btn('ev-approve', '✅ Accepter et publier') + actions + btn('ev-correct', '✍️ Demander une correction') + btn('ev-reject', '❌ Refuser');
+  else if(ev.status === 'correction') actions = btn('ev-approve', '✅ Publier') + actions + btn('ev-reject', '❌ Refuser');
+  else if(ev.status === 'rejected') actions = btn('ev-approve', '✅ Publier') + actions;
+  else actions += btn('ev-toggle', '👁 ' + (ev.hidden ? 'Afficher' : 'Masquer'));
+  actions += btn('ev-del', '🗑');
+  const by = ev.submitted_by ? ' · signalé par un artisan' : '';
+  const why = notShownReason(ev);
+  return '<div class="adm-row' + flashClass(ev.id) + '"><div class="adm-info"><span><b>' + escapeHtml(ev.title) + '</b>' +
+    '<span class="pill ' + cls + '">' + lab + '</span>' + (ev.hidden ? '<span class="pill off">Masqué</span>' : '') +
+    (why ? '<span class="pill warn">' + escapeHtml(why) + '</span>' : '') + '</span>' +
+    '<small>' + escapeHtml((b ? b.name : 'Entreprise supprimée') + ' · ' + formatEventDates(ev) + by) + '</small>' +
+    (ev.admin_note ? '<small>Message : ' + escapeHtml(ev.admin_note) + '</small>' : '') + '</div>' +
+    '<div class="adm-btns">' + actions + '</div></div>';
+}
+function renderAdminEv(){
+  const byStartDesc = (a, b) => new Date(b.start_at) - new Date(a.start_at);
+  const pend = ART.events.filter(e => e.status === 'pending').sort(byStartDesc);
+  const pub = ART.events.filter(e => e.status === 'approved' && !e.hidden).sort(byStartDesc);
+  const other = ART.events.filter(e => (e.status === 'approved' && e.hidden) || e.status === 'rejected' || e.status === 'correction').sort(byStartDesc);
+  const group = (title, list, emptyMsg) => '<p class="adm-group">' + title + ' (' + list.length + ')</p>' +
+    (list.length ? list.map(adminEventRow).join('') : '<p class="adm-empty">' + emptyMsg + '</p>');
+  artEl('adminPane_ev').innerHTML =
+    '<div class="adm-bar"><button type="button" class="btn btn-solid btn-small" data-act="ev-add">➕ Ajouter un événement</button></div>' +
+    flashBanner('ev') +
+    group('À valider', pend, 'Aucun événement en attente de validation.') +
+    group('Publiés', pub, 'Aucun événement publié pour l\u2019instant.') +
+    group('Masqués, refusés ou en correction', other, 'Aucun.');
+}
+function renderAdminSet(){
+  artEl('adminPane_set').innerHTML =
+    '<label class="check-row"><input type="checkbox" id="setArtisanEvents"' + (artisanFeatureOn() ? ' checked' : '') + '> Autoriser les artisans à signaler des événements</label>' +
+    '<p class="adm-note">Pour qu\u2019un artisan puisse signaler un événement, il doit avoir un compte membre, et tu dois associer ce compte à sa fiche (champ « Compte artisan associé » dans le formulaire de l\u2019entreprise). Tout événement signalé reste « À valider » tant que tu ne l\u2019as pas publié toi-même.</p>';
+}
+async function handleAdminAction(act, id, btn){
+  const biz = ART.businesses.find(b => b.id === id);
+  const ev = ART.events.find(e => e.id === id);
+  let ok = false;
+  switch(act){
+    case 'biz-add': openBizForm(null); return;
+    case 'biz-edit': openBizForm(id); return;
+    case 'biz-toggle': ok = await dbRun(sb.from('businesses').update({ published: !biz.published }).eq('id', id), biz.published ? 'Fiche masquée' : 'Fiche publiée'); break;
+    case 'biz-del':
+      if(!confirm('Supprimer définitivement « ' + biz.name + ' » et tous ses événements ?')) return;
+      ok = await dbRun(sb.from('businesses').delete().eq('id', id), 'Entreprise supprimée'); break;
+    case 'cat-add': {
+      const name = (artEl('newCatName').value || '').trim();
+      if(!name){ toast('Écris un nom de catégorie.'); return; }
+      ok = await dbRun(sb.from('categories').insert({ id: newId(), name }), 'Catégorie ajoutée'); break;
+    }
+    case 'cat-save': {
+      const name = (btn.closest('[data-cat]').querySelector('input').value || '').trim();
+      if(!name){ toast('Le nom ne peut pas être vide.'); return; }
+      ok = await dbRun(sb.from('categories').update({ name }).eq('id', id), 'Catégorie modifiée'); break;
+    }
+    case 'cat-del': {
+      const c = ART.categories.find(x => x.id === id);
+      if(!confirm('Supprimer la catégorie « ' + (c ? c.name : '') + ' » ? Elle sera retirée des fiches qui l\u2019utilisent.')) return;
+      ok = await dbRun(sb.from('categories').delete().eq('id', id), 'Catégorie supprimée'); break;
+    }
+    case 'ev-add': openEventForm(null, 'admin'); return;
+    case 'ev-edit': openEventForm(id, 'admin'); return;
+    case 'ev-approve': ok = await dbRun(sb.from('events').update({ status:'approved', hidden:false, admin_note:null }).eq('id', id), 'Événement publié'); break;
+    case 'ev-reject': ok = await dbRun(sb.from('events').update({ status:'rejected' }).eq('id', id), 'Événement refusé'); break;
+    case 'ev-correct': {
+      const msg = prompt("Message pour l'artisan (que doit-il corriger ?)", ev && ev.admin_note ? ev.admin_note : '');
+      if(msg === null) return;
+      ok = await dbRun(sb.from('events').update({ status:'correction', admin_note: msg.trim() || null }).eq('id', id), 'Correction demandée'); break;
+    }
+    case 'ev-toggle': ok = await dbRun(sb.from('events').update({ hidden: !ev.hidden }).eq('id', id), ev.hidden ? 'Événement affiché' : 'Événement masqué'); break;
+    case 'ev-del':
+      if(!confirm('Supprimer définitivement cet événement ?')) return;
+      ok = await dbRun(sb.from('events').delete().eq('id', id), 'Événement supprimé'); break;
+  }
+  if(ok) await loadArtisansData(true);
+}
+
+/* ---------- Formulaire entreprise ---------- */
+async function loadProfiles(){
+  // 1) la liste complète des membres (réservée à l'administrateur, déjà utilisée pour « Membres inscrits »)
+  try{
+    const { data, error } = await sb.functions.invoke('list-members');
+    if(!error && data && Array.isArray(data.members)){
+      ART.profiles = data.members.filter(m => m.id).map(m => ({
+        id: m.id, pseudo: m.pseudo || (m.email ? m.email.split('@')[0] : 'Membre'), email: m.email || ''
+      }));
+      return;
+    }
+  }catch(e){ /* repli ci-dessous */ }
+  // 2) repli : la liste publique des pseudos
+  try{
+    const { data } = await sb.from('profiles').select('id, pseudo');
+    ART.profiles = (data || []).filter(p => p.pseudo).map(p => ({ id: p.id, pseudo: p.pseudo, email: '' }));
+  }catch(e){ ART.profiles = []; }
+}
+function clearBizError(){
+  const el = artEl('bizFormError');
+  if(el){ el.style.display = 'none'; el.textContent = ''; }
+  document.querySelectorAll('#bizForm .invalid').forEach(x => x.classList.remove('invalid'));
+}
+function bizError(msg, fieldId){
+  clearBizError();
+  const el = artEl('bizFormError');
+  el.textContent = msg;
+  el.style.display = 'block';
+  if(fieldId){ const f = artEl(fieldId); f.classList.add('invalid'); f.focus(); }
+  el.scrollIntoView({ block:'nearest', behavior:'smooth' });
+}
+async function openBizForm(id){
+  const b = id ? ART.businesses.find(x => x.id === id) : null;
+  ART.editingBiz = b ? b.id : null;
+  clearBizError();
+  artEl('bizCrumb').textContent = 'Espace administrateur › Entreprises › ' + (b ? 'Modifier' : 'Ajouter');
+  artEl('bizFormTitle').textContent = b ? "Modifier l'entreprise" : 'Ajouter une entreprise';
+  const soc = (b && b.socials) || {};
+  const set = (k, v) => { artEl(k).value = v || ''; };
+  set('bizName', b && b.name); set('bizActivity', b && b.activity); set('bizCity', b && b.city);
+  set('bizRating', b && b.rating ? String(b.rating) : ''); set('bizDesc', b && b.description); set('bizActDesc', b && b.activity_description);
+  set('bizContact', b && b.contact); set('bizWebsite', b && b.website);
+  set('bizFacebook', soc.facebook); set('bizInstagram', soc.instagram); set('bizTiktok', soc.tiktok); set('bizOther', soc.other);
+  artEl('bizPublished').checked = b ? !!b.published : true;
+  artEl('bizCats').innerHTML = ART.categories.length
+    ? ART.categories.map(c => '<label class="chip-pick"><input type="checkbox" value="' + escapeAttr(c.id) + '"' + (b && b.category_ids.includes(c.id) ? ' checked' : '') + '><span>' + escapeHtml(c.name) + '</span></label>').join('')
+    : '<span class="adm-note">Aucune catégorie : crées-en d\u2019abord dans l\u2019onglet « Catégories ».</span>';
+  ART.uploaders.bizImg.reset(b && b.image_url);
+  ART.uploaders.bizLogo.reset(b && b.logo_url);
+  openOv('bizFormOverlay');
+  const owner = artEl('bizOwner');
+  artEl('bizOwnerHint').textContent = '';
+  owner.innerHTML = '<option value="">Chargement des membres…</option>';
+  await loadProfiles();
+  owner.innerHTML = '<option value="">Aucun</option>' + ART.profiles.map(p =>
+    '<option value="' + escapeAttr(p.id) + '">' + escapeHtml(p.pseudo) + (p.email ? ' — ' + escapeHtml(p.email) : '') + '</option>').join('');
+  owner.value = (b && b.owner_id) || '';
+  artEl('bizOwnerHint').textContent = ART.profiles.length ? '' : "Aucun membre trouvé : l'artisan doit d'abord créer un compte sur le site.";
+}
+async function saveBusiness(e){
+  e.preventDefault();
+  clearBizError();
+  const name = artEl('bizName').value.trim();
+  if(!name){ bizError("Le nom de l'entreprise est obligatoire.", 'bizName'); return; }
+  const website = artEl('bizWebsite').value.trim();
+  const websiteOk = website ? safeUrl(website) : null;
+  if(website && !websiteOk){ bizError('Adresse du site internet non reconnue (ex. https://monsite.fr).', 'bizWebsite'); return; }
+  const socials = {};
+  for(const [k, id, label] of [['facebook', 'bizFacebook', 'Facebook'], ['instagram', 'bizInstagram', 'Instagram'], ['tiktok', 'bizTiktok', 'TikTok'], ['other', 'bizOther', 'Autre lien']]){
+    const raw = artEl(id).value.trim();
+    if(!raw) continue;
+    const u = k === 'other' ? safeUrl(raw) : normalizeSocial(k, raw);
+    if(!u){ bizError('Lien « ' + label + ' » non reconnu (' + SOCIAL_HINT[k] + '). Colle le lien complet ou seulement ton nom d\u2019utilisateur, sans espace.', id); return; }
+    socials[k] = u;
+  }
+  const btn = artEl('bizFormSave');
+  btn.disabled = true;
+  try{
+    const image_url = await ART.uploaders.bizImg.ensureUploaded();
+    const logo_url = await ART.uploaders.bizLogo.ensureUploaded();
+    const id = ART.editingBiz || newId();
+    const rating = artEl('bizRating').value ? Number(artEl('bizRating').value) : null;
+    const row = {
+      name, activity: artEl('bizActivity').value.trim() || null, city: artEl('bizCity').value.trim() || null,
+      description: artEl('bizDesc').value.trim() || null, activity_description: artEl('bizActDesc').value.trim() || null,
+      contact: artEl('bizContact').value.trim() || null, website: websiteOk, socials, rating,
+      image_url: image_url || null, logo_url: logo_url || null,
+      published: artEl('bizPublished').checked, owner_id: artEl('bizOwner').value || null
+    };
+    const q = ART.editingBiz ? sb.from('businesses').update(row).eq('id', id) : sb.from('businesses').insert({ id, ...row });
+    if(!(await dbRun(q))){ bizError("L'enregistrement a échoué : " + ART.lastError); return; }
+    const chosen = Array.from(artEl('bizCats').querySelectorAll('input:checked')).map(i => i.value);
+    if(!(await dbRun(sb.from('business_categories').delete().eq('business_id', id)))){ bizError("Les catégories n'ont pas pu être enregistrées : " + ART.lastError); return; }
+    if(chosen.length && !(await dbRun(sb.from('business_categories').insert(chosen.map(cid => ({ business_id: id, category_id: cid })))))){ bizError("Les catégories n'ont pas pu être enregistrées : " + ART.lastError); return; }
+    ART.adminTab = 'biz';
+    ART.flash = { tab:'biz', id, msg: '✅ « ' + name + ' » est enregistrée' + (row.published ? ' et visible par les visiteurs.' : ', mais masquée : seul toi la vois (coche « Publiée » pour l\u2019afficher).') };
+    closeOv('bizFormOverlay');
+    openOv('adminOverlay');
+    toast('Entreprise enregistrée');
+    await loadArtisansData(true);
+  }catch(err){
+    bizError("L'enregistrement a échoué : " + friendlyDbError(err));
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+/* ---------- Formulaire événement (administrateur et artisan) ---------- */
+function toLocalInput(iso){
+  if(!iso) return '';
+  const d = new Date(iso), p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function fromLocalInput(v){ return v ? new Date(v).toISOString() : null; }
+function openEventForm(id, mode){
+  const admin = mode === 'admin';
+  const ev = id ? ART.events.find(x => x.id === id) : null;
+  ART.editingEv = ev ? ev.id : null;
+  ART.evMode = mode;
+  artEl('evFormTitle').textContent = ev ? "Modifier l'événement" : (admin ? 'Ajouter un événement' : 'Signaler un événement');
+  artEl('evCrumb').textContent = (admin ? 'Espace administrateur › Événements › ' : 'Espace artisan › Mes événements › ') + (ev ? 'Modifier' : (admin ? 'Ajouter' : 'Signaler'));
+  artEl('evBack').textContent = admin ? '← Retour aux événements' : '← Retour à mes événements';
+  artEl('evIntro').textContent = admin
+    ? 'Après l\u2019enregistrement, tu reviens à la liste des événements : un événement ajouté par toi est publié tout de suite (statut « Publié »), sauf si tu changes le statut plus bas.'
+    : "Ton événement sera relu par l'administrateur avant d'être publié.";
+  artEl('evAdminOnly').style.display = admin ? 'block' : 'none';
+  const list = (admin ? ART.businesses : ART.businesses.filter(b => currentUser && b.owner_id === currentUser.id))
+    .slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'fr'));
+  const placeholder = (!ev && list.length !== 1) ? '<option value="">— Choisir une entreprise —</option>' : '';
+  artEl('evBusiness').innerHTML = placeholder + list.map(b =>
+    '<option value="' + escapeAttr(b.id) + '">' + escapeHtml(b.name) + (b.published ? '' : ' (masquée)') + '</option>').join('');
+  artEl('evBusiness').value = ev ? ev.business_id : (list.length === 1 ? list[0].id : '');
+  const set = (k, v) => { artEl(k).value = v || ''; };
+  set('evTitle', ev && ev.title); set('evDesc', ev && ev.description);
+  set('evStart', ev ? toLocalInput(ev.start_at) : ''); set('evEnd', ev ? toLocalInput(ev.end_at) : '');
+  set('evLocation', ev && ev.location); set('evCity', ev && ev.city); set('evContact', ev && ev.contact);
+  set('evLink', ev && ev.link); set('evPractical', ev && ev.practical_info);
+  artEl('evStatus').value = ev ? ev.status : 'approved';
+  set('evNote', ev && ev.admin_note);
+  set('evDispFrom', ev ? toLocalInput(ev.display_from) : ''); set('evDispUntil', ev ? toLocalInput(ev.display_until) : '');
+  artEl('evKeep').checked = !!(ev && ev.keep_after_end);
+  artEl('evHidden').checked = !!(ev && ev.hidden);
+  ART.uploaders.evImg.reset(ev && ev.image_url);
+  openOv('evFormOverlay');
+}
+function eventOutcomeMessage(row, bizName){
+  const t = '« ' + row.title + ' »';
+  if(row.status === 'pending') return '⏳ ' + t + ' est enregistré mais reste « À valider » : les visiteurs ne le voient pas encore.';
+  if(row.status === 'correction') return '✏️ ' + t + ' est enregistré avec le statut « Correction demandée » : les visiteurs ne le voient pas.';
+  if(row.status === 'rejected') return '❌ ' + t + ' est enregistré avec le statut « Refusé » : les visiteurs ne le voient pas.';
+  if(row.hidden) return '👁 ' + t + ' est enregistré mais masqué : les visiteurs ne le voient pas.';
+  if(isEventPublic(row)) return '✅ ' + t + ' est publié : il apparaît dans la fiche de « ' + bizName + ' » (bouton « En savoir plus »). Sur la carte, seul l\u2019événement le plus proche est mis en avant ; les autres sont indiqués par « + autres événements ». Tu le retrouves ci-dessous, dans « Publiés ».';
+  if(eventState(row) === 'finished' && !row.keep_after_end) return '⚠️ ' + t + ' est enregistré, mais il est déjà terminé : les visiteurs ne le voient pas. Modifie-le et coche « Conserver l\u2019affichage une fois l\u2019événement terminé » pour le garder visible.';
+  return '⚠️ ' + t + ' est enregistré mais n\u2019est pas visible pour le moment (période d\u2019affichage non commencée ou terminée).';
+}
+async function saveEvent(e){
+  e.preventDefault();
+  const admin = ART.evMode === 'admin';
+  const title = artEl('evTitle').value.trim();
+  const business_id = artEl('evBusiness').value;
+  if(!business_id){ toast("Choisis l'entreprise concernée."); artEl('evBusiness').focus(); return; }
+  if(!title){ toast("Le nom de l'événement est obligatoire."); artEl('evTitle').focus(); return; }
+  if(!artEl('evStart').value){ toast('La date de début est obligatoire.'); artEl('evStart').focus(); return; }
+  const start_at = fromLocalInput(artEl('evStart').value);
+  const end_at = fromLocalInput(artEl('evEnd').value);
+  if(end_at && new Date(end_at) < new Date(start_at)){ toast('La fin ne peut pas être avant le début.'); return; }
+  const linkRaw = artEl('evLink').value.trim();
+  const link = linkRaw ? safeUrl(linkRaw) : null;
+  if(linkRaw && !link){ toast("Lien d'inscription ou site invalide (ex. https://monsite.fr)."); artEl('evLink').focus(); return; }
+  const btn = artEl('evFormSave');
+  btn.disabled = true;
+  try{
+    const image_url = await ART.uploaders.evImg.ensureUploaded();
+    const base = {
+      business_id, title, description: artEl('evDesc').value.trim() || null, image_url: image_url || null,
+      start_at, end_at, location: artEl('evLocation').value.trim() || null, city: artEl('evCity').value.trim() || null,
+      contact: artEl('evContact').value.trim() || null, link, practical_info: artEl('evPractical').value.trim() || null
+    };
+    const row = admin
+      ? { ...base, status: artEl('evStatus').value, hidden: artEl('evHidden').checked, keep_after_end: artEl('evKeep').checked,
+          display_from: fromLocalInput(artEl('evDispFrom').value), display_until: fromLocalInput(artEl('evDispUntil').value),
+          admin_note: artEl('evNote').value.trim() || null }
+      : { ...base, status: 'pending', admin_note: null };
+    const id = ART.editingEv || newId();
+    let q;
+    if(ART.editingEv) q = sb.from('events').update(row).eq('id', id);
+    else q = sb.from('events').insert({ id, ...row, ...(admin ? {} : { submitted_by: currentUser.id }) });
+    if(!(await dbRun(q))) return;
+    closeOv('evFormOverlay');
+    if(admin){
+      const b = ART.businesses.find(x => x.id === business_id);
+      ART.adminTab = 'ev';
+      ART.flash = { tab:'ev', id, msg: eventOutcomeMessage({ ...row, id }, b ? b.name : '') };
+      openOv('adminOverlay');
+      toast('Événement enregistré');
+    } else {
+      toast('Événement envoyé : il sera relu avant publication.');
+    }
+    await loadArtisansData(true);
+  }catch(err){
+    toast(friendlyDbError(err));
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+/* ---------- Espace artisan ---------- */
+function ownedBusinesses(){ return currentUser ? ART.businesses.filter(b => b.owner_id === currentUser.id) : []; }
+function updateArtisanAccountUI(){
+  const link = artEl('myEventsLink');
+  if(!link) return;
+  link.style.display = (sb && currentUser && !isOwnerUser() && ownedBusinesses().length && artisanFeatureOn()) ? 'block' : 'none';
+}
+function renderMyEvents(){
+  const box = artEl('myEventsList');
+  if(!artEl('myEventsOverlay').classList.contains('open')) return;
+  const mine = ART.events.filter(e => currentUser && e.submitted_by === currentUser.id)
+    .slice().sort((a, b) => new Date(b.start_at) - new Date(a.start_at));
+  if(!mine.length){ box.innerHTML = '<p class="adm-empty">Tu n\u2019as pas encore signalé d\u2019événement.</p>'; return; }
+  box.innerHTML = mine.map(ev => {
+    const [lab, cls] = EV_STATUS[ev.status] || ['?', 'off'];
+    const id = escapeAttr(ev.id);
+    const editable = ev.status === 'pending' || ev.status === 'correction';
+    const b = ART.businesses.find(x => x.id === ev.business_id);
+    return '<div class="my-ev"><b>' + escapeHtml(ev.title) + '<span class="pill ' + cls + '">' + lab + '</span></b>' +
+      '<small>' + escapeHtml((b ? b.name + ' · ' : '') + formatEventDates(ev)) + '</small>' +
+      (ev.status === 'correction' && ev.admin_note ? '<small>✍️ Correction demandée : ' + escapeHtml(ev.admin_note) + '</small>' : '') +
+      (editable ? '<div class="adm-btns" style="margin-top:8px;"><button type="button" class="btn btn-ghost btn-small" data-act="my-edit" data-id="' + id + '">✏️ Modifier</button>' +
+        '<button type="button" class="btn btn-ghost btn-small" data-act="my-del" data-id="' + id + '" aria-label="Supprimer">🗑</button></div>' : '') + '</div>';
+  }).join('');
+}
+
+/* ---------- Branchements ---------- */
+function initArtisans(){
+  artEl('artSearch').addEventListener('input', e => { ART.filters.q = e.target.value; renderArtisanGrid(); });
+  [['artCategory', 'cat'], ['artCity', 'city'], ['artRating', 'rating'], ['artDate', 'date'], ['artSort', 'sort']].forEach(([id, key]) =>
+    artEl(id).addEventListener('change', e => { ART.filters[key] = e.target.value; renderArtisanGrid(); }));
+  artEl('artReset').addEventListener('click', () => {
+    ART.filters = { q:'', cat:'', city:'', rating:'', date:'', sort:'relevance' };
+    artEl('artSearch').value = '';
+    ['artCategory', 'artCity', 'artRating', 'artDate'].forEach(id => { artEl(id).value = ''; });
+    artEl('artSort').value = 'relevance';
+    renderArtisanGrid();
+  });
+  artEl('artFiltersToggle').addEventListener('click', () => {
+    const open = artEl('artFilters').classList.toggle('open');
+    artEl('artFiltersToggle').setAttribute('aria-expanded', String(open));
+  });
+  artEl('artisansSection').addEventListener('click', e => {
+    const el = e.target.closest('[data-biz]');
+    if(el) openBizDetail(el.dataset.biz);
+  });
+  artEl('bizDetailClose').addEventListener('click', () => closeOv('bizDetailOverlay'));
+  artEl('bizDetailOverlay').addEventListener('click', e => { if(e.target.id === 'bizDetailOverlay') closeOv('bizDetailOverlay'); });
+  artEl('goArtisans').addEventListener('click', () => artEl('artisansSection').scrollIntoView({ behavior:'smooth', block:'start' }));
+
+  // administration
+  artEl('openAdminPanel').addEventListener('click', () => {
+    if(!isOwnerUser()) return;
+    ART.adminTab = pendingCount() ? 'ev' : 'biz';
+    openOv('adminOverlay');
+    renderAdmin();
+  });
+  artEl('adminClose').addEventListener('click', () => closeOv('adminOverlay'));
+  artEl('adminOverlay').addEventListener('click', async e => {
+    if(e.target.id === 'adminOverlay'){ closeOv('adminOverlay'); return; }
+    if(!isOwnerUser()) return;
+    const tab = e.target.closest('[data-tab]');
+    if(tab){ ART.adminTab = tab.dataset.tab; renderAdmin(); return; }
+    const btn = e.target.closest('[data-act]');
+    if(btn) await handleAdminAction(btn.dataset.act, btn.dataset.id, btn);
+  });
+  artEl('adminOverlay').addEventListener('change', async e => {
+    if(e.target.id !== 'setArtisanEvents' || !isOwnerUser()) return;
+    const on = e.target.checked;
+    const ok = await dbRun(sb.from('site_settings').upsert({ key:'artisan_events_enabled', value: on ? 'true' : 'false' }, { onConflict:'key' }),
+      on ? 'Signalement par les artisans activé' : 'Signalement par les artisans désactivé');
+    if(ok) await loadArtisansData(true); else e.target.checked = !on;
+  });
+
+  // formulaires
+  ART.uploaders.bizImg = makeUploader({ file:'bizImgFile', preview:'bizImgPrev', importBtn:'bizImgImport', remove:'bizImgRemove', status:'bizImgStatus', prefix: () => 'businesses/', maxDim:1600 });
+  ART.uploaders.bizLogo = makeUploader({ file:'bizLogoFile', preview:'bizLogoPrev', importBtn:'bizLogoImport', remove:'bizLogoRemove', status:'bizLogoStatus', prefix: () => 'logos/', maxDim:600, keepAlpha:true });
+  ART.uploaders.evImg = makeUploader({ file:'evImgFile', preview:'evImgPrev', importBtn:'evImgImport', remove:'evImgRemove', status:'evImgStatus',
+    prefix: () => (ART.evMode === 'admin' ? 'events/admin/' : 'events/' + (currentUser ? currentUser.id : 'x') + '/'), maxDim:1600 });
+  artEl('bizForm').addEventListener('submit', e => { if(isOwnerUser()) saveBusiness(e); else e.preventDefault(); });
+  artEl('bizFormCancel').addEventListener('click', () => closeOv('bizFormOverlay'));
+  artEl('bizBack').addEventListener('click', () => closeOv('bizFormOverlay'));
+  artEl('bizForm').addEventListener('input', clearBizError);
+  artEl('evForm').addEventListener('submit', e => { if(currentUser) saveEvent(e); else e.preventDefault(); });
+  artEl('evFormCancel').addEventListener('click', () => closeOv('evFormOverlay'));
+  artEl('evBack').addEventListener('click', () => closeOv('evFormOverlay'));
+
+  // espace artisan
+  artEl('myEventsLink').addEventListener('click', () => {
+    closeOv('accountOverlay');
+    openOv('myEventsOverlay');
+    renderMyEvents();
+  });
+  artEl('myEventsClose').addEventListener('click', () => closeOv('myEventsOverlay'));
+  artEl('myEventsOverlay').addEventListener('click', async e => {
+    if(e.target.id === 'myEventsOverlay'){ closeOv('myEventsOverlay'); return; }
+    if(e.target.id === 'myEvAdd'){ if(artisanFeatureOn()) openEventForm(null, 'artisan'); return; }
+    const btn = e.target.closest('[data-act]');
+    if(!btn) return;
+    if(btn.dataset.act === 'my-edit') openEventForm(btn.dataset.id, 'artisan');
+    if(btn.dataset.act === 'my-del'){
+      if(!confirm('Supprimer cet événement ?')) return;
+      if(await dbRun(sb.from('events').delete().eq('id', btn.dataset.id), 'Événement supprimé')) await loadArtisansData(true);
+    }
+  });
+}
+initArtisans();
+
+/* ===================== Accueil, partage du carnet, adresse de production ===================== */
+// Adresse officielle du site : utilisée dans les e-mails d'authentification et dans les liens de partage.
+const SITE_URL = "https://voyages.escalesencouleurs.com";
+
+// Adresse /voyage/<identifiant> : carnet partagé, ouvert à tous en lecture seule
+const SHARE_MATCH = location.pathname.match(/^\/voyage\/([A-Za-z0-9_-]{8,64})\/?$/);
+const SHARE_TOKEN = SHARE_MATCH ? SHARE_MATCH[1] : null;
+if(SHARE_TOKEN) document.documentElement.classList.add('shared-mode');
+// sécurité : si l'état de connexion tarde, on n'efface pas l'écran indéfiniment
+setTimeout(() => document.body.classList.remove('auth-pending'), 3500);
+
+/* ----- Page d'accueil : visible uniquement pour un visiteur non connecté ----- */
+function updateLanding(){
+  const showLanding = !!sb && !currentUser && !SHARE_TOKEN;
+  document.getElementById('landing').style.display = showLanding ? 'flex' : 'none';
+  document.getElementById('features').style.display = showLanding ? 'block' : 'none';
+  const hero = document.querySelector('.hero');
+  if(hero) hero.style.display = showLanding ? 'none' : '';
+  document.body.classList.remove('auth-pending');
+}
+document.getElementById('ctaCreate').addEventListener('click', () => {
+  if(!sb){ toast("Les comptes seront disponibles une fois le site connecté à Supabase."); return; }
+  authMode = 'signup';
+  openAuthModal();
+});
+document.getElementById('ctaLogin').addEventListener('click', () => {
+  authMode = 'login';
+  openAuthModal();
+});
+
+/* ----- Espace connecté : « Partager mon carnet de voyage » ----- */
+let myShare = null;
+function newShareToken(){
+  const b = new Uint8Array(12);
+  crypto.getRandomValues(b);
+  return btoa(String.fromCharCode.apply(null, b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function shareNotebookUrl(token){ return SITE_URL + '/voyage/' + token; }
+
+async function renderShareNotebook(){
+  const body = artEl('shareNbBody');
+  body.innerHTML = '<p class="adm-note">Chargement…</p>';
+  try{
+    const { data, error } = await sb.from('shares').select('*').eq('user_id', currentUser.id);
+    if(error) throw error;
+    myShare = (data && data[0]) || null;
+  }catch(err){
+    body.innerHTML = '<p class="form-error">' + escapeHtml(friendlyDbError(err)) + '</p>';
+    return;
+  }
+  const n = trips.filter(t => t.userId === currentUser.id).length;
+  const countTxt = n
+    ? n + ' étape' + (n > 1 ? 's' : '') + ' dans ton carnet.'
+    : "Ton carnet est vide pour l'instant : ajoute des étapes pour qu'il y ait quelque chose à montrer.";
+  if(!myShare || !myShare.enabled){
+    body.innerHTML =
+      '<p class="det-text">Génère un lien public unique : toute personne qui le reçoit (proches, amis, compagnons de route) pourra consulter ton itinéraire en lecture seule, sans compte et sans rien pouvoir modifier.</p>' +
+      '<p class="adm-note">' + escapeHtml(countTxt) + '</p>' +
+      '<div class="modal-actions" style="justify-content:flex-start;"><button type="button" class="btn btn-solid" data-sn="create">🔗 Générer mon lien de partage</button></div>';
+    return;
+  }
+  const url = shareNotebookUrl(myShare.token);
+  const msg = 'Voici mon carnet de voyage : ' + url;
+  body.innerHTML =
+    '<p class="det-text">Toute personne qui a ce lien peut consulter ton carnet en <b>lecture seule</b>, sans compte. Elle ne peut rien modifier.</p>' +
+    '<p class="adm-note">' + escapeHtml(countTxt) + '</p>' +
+    '<div class="sn-row"><input type="text" id="shareNbUrl" class="adm-input" readonly value="' + escapeAttr(url) + '" aria-label="Lien de partage">' +
+      '<button type="button" class="btn btn-solid" id="shareNbCopy" data-sn="copy">Copier le lien</button></div>' +
+    '<div class="sn-actions">' +
+      '<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">WhatsApp</a>' +
+      '<a class="btn btn-ghost btn-small" href="mailto:?subject=' + encodeURIComponent('Mon carnet de voyage') + '&body=' + encodeURIComponent(msg) + '">E-mail</a>' +
+      '<button type="button" class="btn btn-ghost btn-small" data-sn="regen">Nouveau lien</button>' +
+      '<button type="button" class="btn btn-ghost btn-small" data-sn="disable">Désactiver le partage</button>' +
+    '</div>' +
+    '<p class="adm-note">« Nouveau lien » rend l\u2019ancien lien inutilisable. « Désactiver » coupe l\u2019accès immédiatement.</p>';
+}
+
+document.getElementById('openShareNotebook').addEventListener('click', () => {
+  if(!sb){ toast("Le partage sera disponible une fois le site connecté à Supabase."); return; }
+  if(!requireAuth()) return;
+  openOv('shareNotebookOverlay');
+  renderShareNotebook();
+});
+document.getElementById('shareNbClose').addEventListener('click', () => closeOv('shareNotebookOverlay'));
+document.getElementById('shareNotebookOverlay').addEventListener('click', e => {
+  if(e.target.id === 'shareNotebookOverlay') closeOv('shareNotebookOverlay');
+});
+document.getElementById('shareNbBody').addEventListener('click', async e => {
+  const b = e.target.closest('[data-sn]');
+  if(!b || !currentUser) return;
+  const act = b.dataset.sn;
+  if(act === 'copy'){
+    const input = artEl('shareNbUrl');
+    let ok = false;
+    try{ await navigator.clipboard.writeText(input.value); ok = true; }
+    catch(err){ input.focus(); input.select(); try{ ok = document.execCommand('copy'); }catch(e2){} }
+    toast(ok ? 'Lien copié !' : 'Copie impossible : sélectionne le lien et copie-le à la main.');
+    if(ok){ b.textContent = 'Copié ✔'; setTimeout(() => { b.textContent = 'Copier le lien'; }, 2000); }
+    return;
+  }
+  if(act === 'create' || act === 'regen'){
+    if(act === 'regen' && !confirm("Créer un nouveau lien ? L'ancien lien ne fonctionnera plus.")) return;
+    const token = (act === 'create' && myShare && myShare.token) ? myShare.token : newShareToken();
+    const ok = await dbRun(sb.from('shares').upsert({ user_id: currentUser.id, token, enabled: true }, { onConflict: 'user_id' }),
+      act === 'regen' ? 'Nouveau lien créé' : 'Lien de partage créé');
+    if(ok) await renderShareNotebook();
+    return;
+  }
+  if(act === 'disable'){
+    if(!confirm('Désactiver le partage ? Le lien ne fonctionnera plus pour personne.')) return;
+    const ok = await dbRun(sb.from('shares').update({ enabled: false }).eq('user_id', currentUser.id), 'Partage désactivé');
+    if(ok) await renderShareNotebook();
+  }
+});
+
+/* ----- Page publique /voyage/<identifiant> : lecture seule, sans compte ----- */
+function sharedCardHTML(t){
+  const c = COUNTRY_MAP[t.countryCode];
+  const name = c ? c[1] : (t.country || 'Quelque part');
+  const urls = (t.photos || []).map(p => photoUrl(p)).filter(Boolean);
+  const start = allPhotosFlat.length;
+  urls.forEach(u => allPhotosFlat.push(u));
+  const grid = urls.length
+    ? '<div class="photo-grid">' + urls.map((u, i) => '<button type="button" data-ph="' + (start + i) + '"><img src="' + escapeAttr(u) + '" loading="lazy" alt="" draggable="false"></button>').join('') + '</div>'
+    : '';
+  return '<article class="trip"><div class="trip-top"><div class="trip-place"><span class="flag">' + flagEmoji(t.countryCode) + '</span><h3>' +
+    escapeHtml(name) + '</h3>' + (t.city ? '<span class="trip-city">— ' + escapeHtml(t.city) + '</span>' : '') +
+    '</div><span class="trip-dates">' + escapeHtml(formatDateRange(t.dateStart, t.dateEnd)) + '</span></div>' +
+    (t.story ? '<p class="trip-story">' + escapeHtml(t.story) + '</p>' : '') + grid + '</article>';
+}
+async function initSharedView(){
+  document.title = 'Carnet de voyage partagé — Escales en couleurs';
+  const robots = document.createElement('meta');
+  robots.name = 'robots'; robots.content = 'noindex, nofollow';
+  document.head.appendChild(robots);
+  document.getElementById('siteTitle').setAttribute('contenteditable', 'false');
+  artEl('svCta').addEventListener('click', () => { window.location.href = '/'; });
+  artEl('svList').addEventListener('click', e => {
+    const b = e.target.closest('[data-ph]');
+    if(b) openLightbox(Number(b.dataset.ph));
+  });
+  const say = (title, sub) => { artEl('svTitle').textContent = title; artEl('svSub').textContent = sub || ''; };
+  if(!sb){ say('Carnet indisponible', "Le site n'est pas connecté à sa base de données."); return; }
+  try{
+    const { data, error } = await sb.rpc('get_shared_notebook', { p_token: SHARE_TOKEN });
+    if(error) throw error;
+    if(!data){
+      say('Ce lien n\u2019est plus valide', 'Le carnet n\u2019est plus partagé, ou le lien est incorrect. Demande un nouveau lien à son auteur.');
+      return;
+    }
+    const list = (data.trips || []).map(rowToTrip);
+    const pseudo = data.pseudo || 'un voyageur';
+    document.title = 'Carnet de voyage de ' + pseudo + ' — Escales en couleurs';
+    const countries = new Set(list.map(t => t.countryCode));
+    say('Carnet de voyage de ' + pseudo,
+      list.length ? list.length + ' étape' + (list.length > 1 ? 's' : '') + ' · ' + countries.size + ' pays' : "Ce carnet ne contient pas encore d'étape.");
+    allPhotosFlat = [];
+    let html = '', lastYear = null;
+    list.forEach(t => {
+      const y = yearOf(t);
+      if(y !== lastYear){ html += '<div class="year-marker">' + escapeHtml(y) + '</div>'; lastYear = y; }
+      html += sharedCardHTML(t);
+    });
+    artEl('svList').innerHTML = html;
+  }catch(err){
+    say('Impossible de charger ce carnet', 'Réessaie dans un instant.');
+  }
+}
+
+/* ===================== Notation du site ===================== */
+function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function safeSet(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
+
+function getVoterToken(){
+  let t = safeGet('site-voter-token');
+  if(!t){ t = crypto.randomUUID(); safeSet('site-voter-token', t); }
+  return t;
+}
+
+async function refreshRatingStats(){
+  const el = document.getElementById('ratingStats');
+  if(!sb) return;
+  try{
+    const { data, error } = await sb.rpc('site_rating_stats');
+    if(error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    const total = Number(row?.total || 0);
+    const avg = Number(row?.average || 0);
+    if(!total){
+      el.textContent = "Sois le premier à donner ton avis !";
+      return;
+    }
+    const avgTxt = avg.toLocaleString('fr-FR', { minimumFractionDigits:1, maximumFractionDigits:1 });
+    el.textContent = `★ ${avgTxt} / 5 · ${total} avis` + (safeGet('site-rating-score') ? ' · merci pour ta note !' : '');
+  }catch(e){}
+}
+
+function initRating(){
+  const box = document.getElementById('starRating');
+  const saved = safeGet('site-rating-score');
+  if(saved){
+    const r = box.querySelector(`input[value="${saved}"]`);
+    if(r) r.checked = true;
+  }
+  box.addEventListener('change', async (e)=>{
+    const score = Number(e.target.value);
+    if(!score) return;
+    safeSet('site-rating-score', String(score));
+    if(!sb){
+      document.getElementById('ratingStats').textContent = "Merci pour ta note !";
+      return;
+    }
+    try{
+      const { error } = await sb.rpc('rate_site', { p_token: getVoterToken(), p_score: score });
+      if(error) throw error;
+      toast("Merci pour ta note !");
+      refreshRatingStats();
+    }catch(err){
+      toast("Impossible d'enregistrer ta note pour le moment.");
+    }
+  });
+  refreshRatingStats();
+}
+if(!SHARE_TOKEN) initRating();
+
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
 document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
@@ -1456,6 +2624,10 @@ document.getElementById('privacyOverlay').addEventListener('click', e=>{
   if(e.target.id === 'privacyOverlay') document.getElementById('privacyOverlay').classList.remove('open');
 });
 
-populateCountrySelect();
-restoreSession();
-initStorage();
+if(SHARE_TOKEN){
+  initSharedView();
+} else {
+  populateCountrySelect();
+  restoreSession();
+  initStorage();
+}
