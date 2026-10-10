@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    {
+      "source": "/voyage/:token",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/voyage/:token",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    }
+  ]
+}
