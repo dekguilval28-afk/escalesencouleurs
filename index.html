@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>if(/^\/voyage\/[A-Za-z0-9_-]{8,64}\/?$/.test(location.pathname))document.documentElement.classList.add('shared-mode');</script>
+<script>if(/^\/(voyage\/[A-Za-z0-9_-]{8,64}|voyageur\/[^\/]+)\/?$/.test(location.pathname))document.documentElement.classList.add('shared-mode');</script>
 <title>Escales en couleurs</title>
 <meta name="google-site-verification" content="HeYp3BScs_gdhFIijPlzAyxSITn1nOIQoRBq9El9BT4" />
 <meta name="description" content="Escales en couleurs, notre carnet de voyage en ligne : les pays traversés, les étapes, les photos souvenirs. Créez votre compte pour ajouter et partager vos propres voyages.">
@@ -146,6 +146,17 @@
   </div>
 </section>
 
+<section class="follow wrap" id="follow" style="display:none;" aria-label="Suivre un voyageur">
+  <form class="follow-card" id="followForm" novalidate>
+    <p class="follow-text">Vous suivez un proche ? Entrez son pseudo ou son nom pour voir ses escales en direct.</p>
+    <div class="follow-row">
+      <input type="search" id="followInput" placeholder="Pseudo du voyageur" maxlength="60" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search" aria-label="Pseudo du voyageur">
+      <button type="submit" class="btn btn-solid" id="followBtn">Suivre un voyageur</button>
+    </div>
+    <p class="follow-msg" id="followMsg" role="alert" aria-live="polite"></p>
+  </form>
+</section>
+
 <section class="features wrap" id="features" style="display:none;" aria-label="Fonctionnalités">
   <div class="feat-grid">
     <article class="feat">
@@ -181,7 +192,11 @@
       <p class="crumb">Carnet de voyage partagé · lecture seule</p>
       <h1 id="svTitle">Chargement du carnet…</h1>
       <p class="sv-sub" id="svSub"></p>
-      <button type="button" class="btn btn-solid" id="svCta">Créer mon propre carnet (gratuit)</button>
+      <p class="sv-note" id="svNote"></p>
+      <div class="sv-actions">
+        <button type="button" class="btn btn-solid" id="svCta">Créer mon propre carnet (gratuit)</button>
+        <button type="button" class="btn btn-ghost" id="svHome">← Retour à l'accueil</button>
+      </div>
     </div>
     <div id="svList"></div>
   </section>
@@ -423,6 +438,13 @@
     <div class="gu-pane" id="gtPane_faq" style="display:none;">
       <h2>❔ Foire Aux Questions (FAQ)</h2>
       <div class="legal-text">
+        <details class="faq"><summary>🔍 Comment permettre à mes proches de suivre mon voyage sans qu'ils s'inscrivent ?</summary>
+          <p>C'est très simple ! Vos proches n'ont pas besoin de créer de compte pour voir vos escales.</p>
+          <ol>
+            <li>Dans vos paramètres de profil, choisissez un Pseudo unique.</li>
+            <li>Lors de la création de votre carnet de voyage, cochez la case « Autoriser la recherche par pseudo ».</li>
+            <li>Donnez simplement votre pseudo à vos proches. Il leur suffira de le taper dans la case de recherche sur la page d'accueil pour afficher votre carnet de route en direct !</li>
+          </ol></details>
         <details class="faq"><summary>Mes proches ont-ils besoin d'un compte pour voir mon carnet ?</summary>
           <p>Non. Le lien public généré leur permet de consulter vos aventures en lecture seule sans s'inscrire.</p></details>
         <details class="faq"><summary>Le site fonctionne-t-il sur smartphone au bout du monde ?</summary>
@@ -537,6 +559,12 @@
         </div>
         <div class="upload-preview" id="uploadPreview"></div>
       </div>
+      <label class="privacy-opt" for="tripFindable">
+        <input type="checkbox" id="tripFindable">
+        <span><strong>Autoriser la recherche par pseudo</strong>
+          <small>Permettre aux proches de trouver ce voyage en cherchant mon pseudo sur la page d'accueil</small>
+          <small>Cochée, cette étape devient visible, sans compte, par toute personne qui tape ton pseudo.</small></span>
+      </label>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="cancelModal">Annuler</button>
         <button type="submit" class="btn btn-solid" id="saveTrip">Enregistrer l'étape</button>
@@ -608,6 +636,7 @@
     <p style="font-size:14.5px;color:var(--ink-soft);margin:0 0 12px;"><span id="accountMemberCount">0</span> membre(s) inscrit(s) sur le site</p>
     <div class="field" style="margin-bottom:14px;">
       <label for="accountNewPseudo">Changer mon pseudo</label>
+      <p class="adm-note" style="margin:0 0 8px;">Ton pseudo est unique : c'est celui que tes proches tapent pour te suivre.</p>
       <div style="display:flex;gap:8px;">
         <input type="text" id="accountNewPseudo" maxlength="30" placeholder="Nouveau pseudo" style="flex:1;">
         <button type="button" class="btn btn-ghost btn-small" id="accountSavePseudo">Enregistrer</button>
