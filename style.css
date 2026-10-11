@@ -517,6 +517,7 @@
   }
 
   /* ---------- Statistiques (page secrète /admin-stats) ---------- */
+  #adminStatsBtn{text-decoration:none;display:inline-flex;align-items:center;line-height:normal;}
   .admin-stats-view{display:none;padding:56px 0 40px;}
   html.admin-mode .admin-stats-view{display:block;}
   html.admin-mode header.site,
