@@ -52,7 +52,7 @@
       <button class="btn btn-ghost btn-small" id="shareReqBtn" title="Demandes de partage" style="display:none;">🔔 <span id="shareReqCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="inboxBtn" title="Messages" style="display:none;">✉️ <span id="inboxCount" class="like-count"></span></button>
       <button class="btn btn-ghost btn-small" id="authBtn">Connexion</button>
-      <button class="btn btn-ghost btn-small" id="openGuide" title="Aide">❔ Aide</button>
+      <button class="btn btn-ghost btn-small" id="openGuideUltime" title="Guide &amp; Aide">Guide &amp; Aide</button>
       <button class="btn btn-ghost btn-small" id="shareSiteBtn" title="Partager le carnet">↗ Partager</button>
       <button class="btn btn-solid" id="openAdd">+ Ajouter un voyage</button>
     </div>
@@ -139,6 +139,7 @@
   <div class="lh-content">
     <p class="lh-kicker">Carnet de voyage en ligne</p>
     <h1>Ne rêvez plus vos voyages. Planifiez-les en couleurs.</h1>
+    <div class="lh-hook" id="lhHook"><p style="margin:0;">Nouveau ici ? Laissez-vous guider ! 🧭 Découvrez notre <button type="button" class="link-btn" data-open-guide>"Guide Ultime du Voyageur"</button> pour apprendre à créer votre premier itinéraire multi-pays, charger vos photos et partager vos vacances en 2 clics avec vos proches, sans qu'ils n'aient besoin de créer un compte.</p></div>
     <p class="lh-sub">Créez vos itinéraires sur mesure, gérez vos escales et partagez vos carnets de route en quelques clics. Gratuit et sans publicité.</p>
     <button type="button" class="btn-cta" id="ctaCreate">Créer mon voyage (Gratuit)</button>
     <p class="lh-login">Déjà un compte ? <button type="button" class="link-btn" id="ctaLogin">Se connecter</button></p>
@@ -336,7 +337,7 @@
 
 <footer>
   <p>© <span id="footerYear">2026</span> Escales en couleurs</p>
-  <p class="footer-main"><a href="https://escalesencouleurs.com" target="_blank" rel="noopener">escalesencouleurs.com</a></p>
+  <p class="footer-main"><span class="fm-label">Notre site principal : </span><a href="https://escalesencouleurs.com" target="_blank" rel="noopener">escalesencouleurs.com</a></p>
   <p class="footer-links">
     <button type="button" class="btn-icon" id="openLegal">Mentions légales</button>
     ·
@@ -355,40 +356,86 @@
   </div>
 </div>
 
-<!-- Guide d'utilisation -->
-<div class="overlay" id="guideOverlay">
-  <div class="modal legal-modal">
-    <h2>Comment ça marche</h2>
-    <div class="legal-text">
-      <h3>Créer un compte</h3>
-      <p>Clique sur "Connexion" en haut, puis "Créer un compte". Choisis un pseudo, indique ton email et un mot de passe. Tu es connecté(e) immédiatement.</p>
-
-      <h3>Ajouter un voyage</h3>
-      <p>Une fois connecté(e), clique sur "+ Ajouter un voyage". Cherche un ou plusieurs pays dans le champ de recherche, précise la ville et les dates, raconte ton souvenir et ajoute des photos. Choisir plusieurs pays crée une carte par pays, avec les mêmes dates, le même récit et les mêmes photos.</p>
-
-      <h3>Modifier ou supprimer une étape</h3>
-      <p>Les icônes ✎ et 🗑 n'apparaissent que sur tes propres voyages — personne d'autre ne peut les modifier.</p>
-
-      <h3>Aimer et partager une étape</h3>
-      <p>Le cœur ♡ ajoute un "j'aime". La flèche ↗ partage l'étape sur WhatsApp, Facebook, X, Instagram, TikTok ou copie simplement le lien. Partager le voyage de quelqu'un d'autre demande son accord : une demande lui est envoyée, visible via la cloche 🔔.</p>
-
-      <h3>Sélectionner plusieurs voyages</h3>
-      <p>Le bouton "☑ Sélectionner" au-dessus de la liste permet de cocher plusieurs de tes voyages pour les partager en un seul message.</p>
-
-      <h3>Laisser ou recevoir un message</h3>
-      <p>La bulle 💬 en bas à droite permet à n'importe qui de laisser un message — en général, ou à une personne précise en tapant son nom/pseudo. Les messages reçus apparaissent dans l'enveloppe ✉️ en haut, une fois connecté(e).</p>
-
-      <h3>Partager mon carnet de voyage</h3>
-      <p>Dans « Le fil du voyage », clique sur « 🔗 Partager mon carnet de voyage » : un lien public unique est créé. Toute personne qui le reçoit (proches, amis) peut consulter ton carnet en lecture seule, sans compte. Tu peux copier le lien, l'envoyer par WhatsApp ou par e-mail, le renouveler ou le désactiver à tout moment.</p>
-
-      <h3>Mon compte</h3>
-      <p>Clique sur ton pseudo en haut à droite pour changer de pseudo, voir tes demandes de partage envoyées, te déconnecter ou supprimer définitivement ton compte.</p>
-
-      <h3>Mot de passe oublié</h3>
-      <p>Depuis la fenêtre de connexion, clique sur "Mot de passe oublié ?" et suis le lien reçu par email.</p>
+<!-- Guide & Aide : Guide Ultime, À propos, FAQ -->
+<div class="overlay" id="guideUltimeOverlay">
+  <div class="modal legal-modal gu-modal" role="dialog" aria-modal="true" aria-labelledby="guTitle">
+    <div class="gu-tabs" role="tablist">
+      <button type="button" class="gu-tab active" role="tab" data-gt="guide">Guide</button>
+      <button type="button" class="gu-tab" role="tab" data-gt="about">À propos</button>
+      <button type="button" class="gu-tab" role="tab" data-gt="faq">FAQ</button>
     </div>
+
+    <div class="gu-pane" id="gtPane_guide">
+      <h2 id="guTitle">🗺️ Guide Ultime : Planifiez et partagez vos voyages en couleurs</h2>
+      <div class="legal-text">
+        <p>Bienvenue sur Escales en couleurs ! Ce guide pratique vous explique, étape par étape, comment transformer vos aventures en un carnet de route interactif, gratuitement et sans aucune publicité.</p>
+
+        <h3>Chapitre 1 : Vos premiers pas sur la plateforme</h3>
+        <p>Pour commencer à dessiner votre carte du monde, l'inscription prend moins d'une minute chrono :</p>
+        <ol>
+          <li>Cliquez sur le bouton "Connexion" (ou "Créer mon voyage") en haut de la page.</li>
+          <li>Sélectionnez l'option "Créer un compte".</li>
+          <li>Choisissez un pseudo, renseignez votre adresse e-mail et un mot de passe.</li>
+          <li>Validez : vous êtes instantanément connecté(e) et prêt(e) à partir !</li>
+        </ol>
+        <p>Vos données sont en sécurité : vos textes et vos photos restent votre entière propriété. Notre base de données est stockée de façon sécurisée en Europe (Irlande), et nous n'utilisons aucun cookie de suivi ou publicitaire.</p>
+
+        <h3>Chapitre 2 : Créer votre itinéraire et ajouter des escales</h3>
+        <p>Une fois connecté(e), cliquez sur le bouton "+ Ajouter un voyage" pour ouvrir le formulaire :</p>
+        <ul>
+          <li>Le Pays : Tapez le nom du pays, le moteur de recherche le trouve instantanément.</li>
+          <li>La Ville ou Région : Précisez l'endroit exact (ex: Plage de Tamarindo).</li>
+          <li>Les Dates : Indiquez votre jour d'arrivée et la date de fin (facultative).</li>
+          <li>Le Souvenir : Racontez votre journée, vos anecdotes et vos rencontres.</li>
+          <li>Les Photos : Cliquez sur la zone dédiée pour charger les images de votre smartphone ou ordinateur.</li>
+        </ul>
+        <p>💡 L'astuce Secrète : Le voyage multi-pays ! Si vous traversez plusieurs frontières d'un coup, vous pouvez sélectionner plusieurs pays dans le même formulaire. Le site va automatiquement générer une carte interactive pour chaque pays sélectionné, en y dupliquant votre récit et vos photos. Un gain de temps précieux !</p>
+        <p>✍️ Modifier ou supprimer : Une erreur ? Lorsque vous parcourez votre fil de voyage, vous êtes la seule personne à voir les icônes ✎ (Modifier) et 🗑 (Supprimer). Vous gardez le contrôle total.</p>
+
+        <h3>Chapitre 3 : L'art de partager vos vacances avec vos proches</h3>
+        <ul>
+          <li>Le lien magique « Lecture seule » (Sans compte requis) : Pour montrer vos photos sans obliger vos proches à s'inscrire, allez dans "Le fil du voyage" et cliquez sur "🔗 Partager mon carnet de voyage". Un lien public unique est généré. Copiez-le et envoyez-le par WhatsApp ou e-mail. Vos invités verront tout sans créer de compte. Vous pouvez désactiver ce lien à tout moment.</li>
+          <li>La sélection multiple : Cliquez sur "☑ Sélectionner" au-dessus de votre liste, cochez les cases des étapes choisies, puis cliquez sur "Partager la sélection" pour envoyer un résumé.</li>
+        </ul>
+
+        <h3>Chapitre 4 : Rester connecté avec la communauté</h3>
+        <ul>
+          <li>La bulle de message : En bas à droite se trouve une bulle 💬 pour vous laisser un mot d'encouragement (en général, ou à un pseudo précis).</li>
+          <li>L'enveloppe ✉ et la Cloche 🔔 : L'enveloppe s'illumine si vous recevez un message privé. La cloche vous avertit si un membre demande l'accord pour partager l'une de vos étapes. Vous pouvez aussi cliquer sur le cœur ♡ pour aimer un voyage.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="gu-pane" id="gtPane_about" style="display:none;">
+      <h2>🎨 Les coulisses d'Escales en couleurs</h2>
+      <div class="legal-text">
+        <p>Derrière Escales en couleurs se cache un projet passionné né d'un constat simple : partager ses voyages sur Internet était devenu trop complexe. Entre les réseaux sociaux et les blogs trop techniques, il manquait un espace simple pour retrouver chaque pays traversé, chaque étape, et les photos qui vont avec.</p>
+        <p>Nos 3 engagements :</p>
+        <ol>
+          <li>Gratuité totale : Le site est entièrement gratuit.</li>
+          <li>Zéro publicité : L'écran n'affiche que vos paysages et vos textes.</li>
+          <li>Respect de la vie privée : Pas de cookies publicitaires, stockage sécurisé en Europe.</li>
+        </ol>
+        <p>Ce site est édité à titre personnel, dans le cadre d'un usage familial et non commercial.</p>
+      </div>
+    </div>
+
+    <div class="gu-pane" id="gtPane_faq" style="display:none;">
+      <h2>❔ Foire Aux Questions (FAQ)</h2>
+      <div class="legal-text">
+        <details class="faq"><summary>Mes proches ont-ils besoin d'un compte pour voir mon carnet ?</summary>
+          <p>Non. Le lien public généré leur permet de consulter vos aventures en lecture seule sans s'inscrire.</p></details>
+        <details class="faq"><summary>Le site fonctionne-t-il sur smartphone au bout du monde ?</summary>
+          <p>Oui. Le site est entièrement optimisé pour les téléphones pour être consulté pendant votre séjour.</p></details>
+        <details class="faq"><summary>Puis-je modifier ou supprimer une étape après coup ?</summary>
+          <p>Oui, vous seul voyez les icônes ✎ et 🗑 sur vos propres voyages.</p></details>
+        <details class="faq"><summary>Mes photos restent-elles ma propriété ?</summary>
+          <p>Oui, à 100%. Vous pouvez aussi supprimer votre compte et vos données à tout moment depuis votre profil.</p></details>
+      </div>
+    </div>
+
     <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" id="guideClose">Fermer</button>
+      <button type="button" class="btn btn-ghost" id="guideUltimeClose">Fermer</button>
     </div>
   </div>
 </div>
