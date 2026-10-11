@@ -3,11 +3,24 @@
     {
       "source": "/voyage/:token",
       "destination": "/index.html"
+    },
+    {
+      "source": "/voyageur/:pseudo",
+      "destination": "/index.html"
     }
   ],
   "headers": [
     {
       "source": "/voyage/:token",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/voyageur/:pseudo",
       "headers": [
         {
           "key": "X-Robots-Tag",
