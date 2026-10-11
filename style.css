@@ -431,6 +431,7 @@
   html.shared-mode .nav-actions,
   html.shared-mode #landing,
   html.shared-mode #features,
+  html.shared-mode #follow,
   html.shared-mode .hero,
   html.shared-mode #timelineSection,
   html.shared-mode .contact-bubble,
@@ -476,6 +477,44 @@
   .footer-main a{opacity:1;color:var(--ink);font-size:13px;text-decoration:underline;text-underline-offset:3px;font-weight:600;}
   .footer-main a:hover{color:var(--stamp);}
   .footer-main .fm-label{color:var(--ink-soft);font-size:13px;}
+
+  /* ---------- Suivre un voyageur (accueil public) ---------- */
+  .follow{position:relative;z-index:2;margin-top:-46px;padding:0 24px;}
+  .follow-card{
+    max-width:680px;margin:0 auto;padding:24px 26px 20px;text-align:center;
+    background:var(--card-bg);border:1px solid var(--line);border-radius:18px;
+    box-shadow:0 16px 40px rgba(0,0,0,.28);
+  }
+  .follow-text{margin:0 0 16px;font-size:16.5px;line-height:1.5;color:var(--ink);}
+  .follow-row{display:flex;gap:10px;}
+  .follow-row input{
+    flex:1;min-width:0;padding:13px 16px;border:1px solid var(--line);border-radius:10px;
+    background:var(--paper);color:var(--ink);font-family:inherit;font-size:16px;
+  }
+  .follow-row input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .follow-row .btn{white-space:nowrap;padding:13px 22px;font-size:15.5px;}
+  .follow-msg{margin:12px 0 0;min-height:20px;font-size:14.5px;line-height:1.45;color:var(--ink-soft);}
+  .follow-msg.err{color:var(--stamp);font-weight:600;}
+
+  /* case de confidentialité du formulaire d'étape */
+  .privacy-opt{
+    display:flex;gap:12px;align-items:flex-start;margin:6px 0 16px;padding:13px 15px;cursor:pointer;
+    border:1px solid var(--line);border-radius:10px;background:var(--paper);
+  }
+  .privacy-opt input{width:20px;height:20px;margin:2px 0 0;flex-shrink:0;cursor:pointer;accent-color:var(--stamp);}
+  .privacy-opt small{display:block;margin-top:3px;font-size:13px;line-height:1.45;color:var(--ink-soft);}
+
+  .faq ol{margin:0;padding:0 16px 14px 38px;color:var(--ink-soft);}
+  .faq li{margin:0 0 6px;}
+  .sv-note{margin:-6px 0 16px;font-size:13.5px;color:var(--ink-soft);}
+  .sv-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  @media (max-width:560px){
+    .follow{padding:0 16px;margin-top:-34px;}
+    .follow-card{padding:20px 18px 16px;}
+    .follow-row{flex-direction:column;}
+    .follow-row .btn{width:100%;}
+  }
 
   footer{
     text-align:center;padding:30px 0 40px;color:var(--ink-soft);font-size:12.5px;
