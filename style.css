@@ -447,6 +447,36 @@
     .feat{padding:24px 22px;}
   }
 
+  /* ---------- Guide & Aide ---------- */
+  .gu-modal{max-width:680px;}
+  .gu-modal .legal-text{max-height:52vh;}
+  .gu-modal h2{font-size:21px;line-height:1.3;}
+  .gu-tabs{display:flex;gap:6px;margin:0 0 14px;border-bottom:1px solid var(--line);}
+  .gu-tab{
+    padding:9px 14px;border:0;border-bottom:3px solid transparent;background:none;cursor:pointer;
+    color:var(--ink-soft);font-family:inherit;font-size:14.5px;
+  }
+  .gu-tab.active{color:var(--ink);border-bottom-color:var(--stamp);font-weight:600;}
+  .legal-text ol,.legal-text ul{margin:0 0 12px;padding-left:22px;color:var(--ink-soft);}
+  .legal-text li{margin:0 0 6px;}
+  .faq{border:1px solid var(--line);border-radius:10px;margin:0 0 8px;background:var(--paper);}
+  .faq summary{cursor:pointer;padding:12px 14px;font-weight:600;color:var(--ink);list-style-position:inside;}
+  .faq p{margin:0;padding:0 14px 14px;}
+
+  /* bloc d'accroche sous le titre de l'accueil */
+  .lh-hook{
+    max-width:660px;margin:0 auto 22px;padding:13px 18px;border-radius:14px;text-align:center;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    font-size:15px;line-height:1.55;color:#fff;text-shadow:0 1px 10px rgba(0,0,0,.4);
+  }
+  .lh-hook .link-btn{font-weight:700;}
+
+  /* lien du pied de page : doit se voir comme un lien */
+  .footer-main a{opacity:1;color:var(--ink);font-size:13px;text-decoration:underline;text-underline-offset:3px;font-weight:600;}
+  .footer-main a:hover{color:var(--stamp);}
+  .footer-main .fm-label{color:var(--ink-soft);font-size:13px;}
+
   footer{
     text-align:center;padding:30px 0 40px;color:var(--ink-soft);font-size:12.5px;
     border-top:1px solid var(--line);margin-top:20px;
