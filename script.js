@@ -1728,6 +1728,56 @@ document.getElementById('guideUltimeOverlay').addEventListener('click', e => {
   if(tab) showGuideTab(tab.dataset.gt);
 });
 
+/* ----- Statistiques : comptage des visites et page secrète /admin-stats ----- */
+const ADMIN_VIEW = /^\/admin-stats\/?$/.test(location.pathname);
+if(ADMIN_VIEW) document.documentElement.classList.add('admin-mode');
+
+// +1 à chaque chargement de la page d'accueil (visiteurs anonymes ou connectés). Silencieux en cas d'échec.
+function countPageView(){
+  if(!sb) return;
+  try{ sb.rpc('increment_page_views').then(() => {}, () => {}); }catch(e){}
+}
+const fmtInt = n => Number(n).toLocaleString('fr-FR');
+
+async function loadAdminStats(){
+  const status = byId('statsStatus'), err = byId('statsError');
+  err.style.display = 'none';
+  status.textContent = 'Chargement…';
+  const { data, error } = await sb.rpc('get_admin_stats');
+  if(error){
+    err.textContent = 'Impossible de charger les statistiques : ' + friendlyDbError(error);
+    err.style.display = 'block';
+    status.textContent = '';
+    byId('statsActions').hidden = false;
+    return;
+  }
+  if(!data){ window.location.replace('/'); return; }   // la base refuse : ce n'est pas l'administrateur
+  const views = Number(data.views) || 0, members = Number(data.members) || 0;
+  const values = { statViews: views, statMembers: members, statGuests: Math.max(0, views - members) };
+  Object.keys(values).forEach(id => { byId(id).textContent = fmtInt(values[id]); });
+  // même taille pour les trois chiffres : on se règle sur le plus long
+  const longest = Math.max.apply(null, Object.keys(values).map(id => byId(id).textContent.length));
+  Object.keys(values).forEach(id => { byId(id).dataset.len = String(longest); });
+  byId('statsGrid').hidden = false;
+  byId('statsActions').hidden = false;
+  status.textContent = 'Dernière mise à jour : ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+async function initAdminStats(){
+  document.title = 'Statistiques — Escales en couleurs';
+  const robots = document.createElement('meta');
+  robots.name = 'robots'; robots.content = 'noindex, nofollow';
+  document.head.appendChild(robots);
+  const leave = () => window.location.replace('/');
+  if(!sb){ leave(); return; }
+  let session = null;
+  try{ const r = await sb.auth.getSession(); session = r.data && r.data.session; }catch(e){}
+  // confort : on renvoie tout de suite vers l'accueil quiconque n'est pas l'administrateur.
+  // La vraie protection est dans la base : la fonction get_admin_stats ne répond qu'à ton adresse.
+  if(!session || !session.user || session.user.email !== OWNER_EMAIL){ leave(); return; }
+  byId('statsRefresh').addEventListener('click', loadAdminStats);
+  await loadAdminStats();
+}
+
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
 document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
@@ -1740,10 +1790,13 @@ document.getElementById('privacyOverlay').addEventListener('click', e=>{
   if(e.target.id === 'privacyOverlay') document.getElementById('privacyOverlay').classList.remove('open');
 });
 
-if(PUBLIC_VIEW){
+if(ADMIN_VIEW){
+  initAdminStats();
+} else if(PUBLIC_VIEW){
   initSharedView();
 } else {
   populateCountrySelect();
   restoreSession();
   initStorage();
+  countPageView();
 }
