@@ -64,6 +64,23 @@ function applyEditableGate(){
   });
   const membersLink = document.getElementById('viewMembersLink');
   if(membersLink) membersLink.style.display = isOwner && sb ? 'block' : 'none';
+
+  // Bouton « Statistiques » : créé uniquement pour l'administrateur connecté,
+  // il n'existe pas dans la page pour les visiteurs ni pour les autres membres.
+  const adminOnly = !!(sb && currentUser && currentUser.email === OWNER_EMAIL);
+  const statsBtn = document.getElementById('adminStatsBtn');
+  if(adminOnly && !statsBtn){
+    const a = document.createElement('a');
+    a.id = 'adminStatsBtn';
+    a.className = 'btn btn-ghost btn-small';
+    a.href = '/admin-stats';
+    a.title = 'Statistiques du site (administrateur)';
+    a.textContent = '📊 Statistiques';
+    const anchor = document.getElementById('openGuideUltime');
+    anchor.parentNode.insertBefore(a, anchor);
+  } else if(!adminOnly && statsBtn){
+    statsBtn.remove();
+  }
 }
 
 let membersToRemove = new Set();
