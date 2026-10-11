@@ -7,6 +7,14 @@
     {
       "source": "/voyageur/:pseudo",
       "destination": "/index.html"
+    },
+    {
+      "source": "/admin-stats",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/admin-stats/",
+      "destination": "/index.html"
     }
   ],
   "headers": [
@@ -21,6 +29,24 @@
     },
     {
       "source": "/voyageur/:pseudo",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/admin-stats",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    },
+    {
+      "source": "/admin-stats/",
       "headers": [
         {
           "key": "X-Robots-Tag",
