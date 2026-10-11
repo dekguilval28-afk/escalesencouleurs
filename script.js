@@ -1439,11 +1439,6 @@ document.addEventListener('keydown', e=>{
 });
 
 /* ===================== Init ===================== */
-document.getElementById('openGuide').onclick = ()=>document.getElementById('guideOverlay').classList.add('open');
-document.getElementById('guideClose').onclick = ()=>document.getElementById('guideOverlay').classList.remove('open');
-document.getElementById('guideOverlay').addEventListener('click', e=>{
-  if(e.target.id === 'guideOverlay') document.getElementById('guideOverlay').classList.remove('open');
-});
 
 /* ===================== Outils communs ===================== */
 const byId = (id) => document.getElementById(id);
@@ -1477,8 +1472,12 @@ if(SHARE_TOKEN) document.documentElement.classList.add('shared-mode');
 setTimeout(() => document.body.classList.remove('auth-pending'), 3500);
 
 /* ----- Page d'accueil : visible uniquement pour un visiteur non connecté ----- */
+let wasLanding = null;
 function updateLanding(){
   const showLanding = !!sb && !currentUser && !SHARE_TOKEN;
+  // la connexion fait passer de l'accueil à l'espace membre : on revient en haut de page
+  if(wasLanding === true && !showLanding) window.scrollTo({ top: 0, behavior: 'smooth' });
+  wasLanding = showLanding;
   document.getElementById('landing').style.display = showLanding ? 'flex' : 'none';
   document.getElementById('features').style.display = showLanding ? 'block' : 'none';
   const hero = document.querySelector('.hero');
@@ -1633,6 +1632,25 @@ async function initSharedView(){
     say('Impossible de charger ce carnet', 'Réessaie dans un instant.');
   }
 }
+
+/* ----- Guide & Aide (Guide Ultime, À propos, FAQ) ----- */
+function showGuideTab(tab){
+  document.querySelectorAll('.gu-tab').forEach(t => t.classList.toggle('active', t.dataset.gt === tab));
+  ['guide', 'about', 'faq'].forEach(k => { document.getElementById('gtPane_' + k).style.display = (k === tab ? 'block' : 'none'); });
+  document.querySelectorAll('#guideUltimeOverlay .legal-text').forEach(x => { x.scrollTop = 0; });
+}
+function openGuideUltime(tab){
+  showGuideTab(tab || 'guide');
+  document.getElementById('guideUltimeOverlay').classList.add('open');
+}
+document.getElementById('openGuideUltime').addEventListener('click', () => openGuideUltime('guide'));
+document.addEventListener('click', e => { if(e.target.closest('[data-open-guide]')) openGuideUltime('guide'); });
+document.getElementById('guideUltimeClose').addEventListener('click', () => document.getElementById('guideUltimeOverlay').classList.remove('open'));
+document.getElementById('guideUltimeOverlay').addEventListener('click', e => {
+  if(e.target.id === 'guideUltimeOverlay') e.target.classList.remove('open');
+  const tab = e.target.closest('[data-gt]');
+  if(tab) showGuideTab(tab.dataset.gt);
+});
 
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
