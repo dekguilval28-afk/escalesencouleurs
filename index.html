@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>if(/^\/(voyage\/[A-Za-z0-9_-]{8,64}|voyageur\/[^\/]+)\/?$/.test(location.pathname))document.documentElement.classList.add('shared-mode');</script>
+<script>if(/^\/(voyage\/[A-Za-z0-9_-]{8,64}|voyageur\/[^\/]+)\/?$/.test(location.pathname))document.documentElement.classList.add('shared-mode');if(/^\/admin-stats\/?$/.test(location.pathname))document.documentElement.classList.add('admin-mode');</script>
 <title>Escales en couleurs</title>
 <meta name="google-site-verification" content="HeYp3BScs_gdhFIijPlzAyxSITn1nOIQoRBq9El9BT4" />
 <meta name="description" content="Escales en couleurs, notre carnet de voyage en ligne : les pays traversés, les étapes, les photos souvenirs. Créez votre compte pour ajouter et partager vos propres voyages.">
@@ -199,6 +199,37 @@
       </div>
     </div>
     <div id="svList"></div>
+  </section>
+
+  <!-- ===== Statistiques : page secrète /admin-stats, réservée à l'administrateur ===== -->
+  <section class="admin-stats-view" id="adminStatsView" aria-live="polite">
+    <div class="as-head">
+      <p class="crumb">Espace administrateur</p>
+      <h1>Statistiques du site</h1>
+      <p class="as-status" id="statsStatus">Vérification de l'accès…</p>
+    </div>
+    <div class="as-grid" id="statsGrid" hidden>
+      <article class="as-card as-c1">
+        <p class="as-label">Visites Totales</p>
+        <p class="as-num" id="statViews">–</p>
+        <p class="as-hint">Chaque chargement de la page d'accueil est compté.</p>
+      </article>
+      <article class="as-card as-c2">
+        <p class="as-label">Utilisateurs Inscrits</p>
+        <p class="as-num" id="statMembers">–</p>
+        <p class="as-hint">Comptes créés sur le site.</p>
+      </article>
+      <article class="as-card as-c3">
+        <p class="as-label">Visiteurs Uniques / Non-inscrits</p>
+        <p class="as-num" id="statGuests">–</p>
+        <p class="as-hint">Visites moins inscrits : une estimation, pas un compte de personnes réelles.</p>
+      </article>
+    </div>
+    <p class="form-error" id="statsError" style="display:none;"></p>
+    <div class="as-actions" id="statsActions" hidden>
+      <button type="button" class="btn btn-solid" id="statsRefresh">Actualiser</button>
+      <a class="btn btn-ghost" href="/">← Retour au site</a>
+    </div>
   </section>
 
 
