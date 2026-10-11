@@ -160,7 +160,9 @@ async function restoreSession(){
     }
     updateAuthUI();
     if(currentUser) { refreshInboxCount(); refreshShareReqCount(); }
-    if(storageMode === 'supabase') render();
+    if(storageMode === 'supabase'){
+      if((currentUser ? currentUser.id : null) !== lastTripsUser) loadSupabaseTrips(); else render();
+    }
   });
 }
 
@@ -199,17 +201,28 @@ document.getElementById('accountClose').onclick = ()=>document.getElementById('a
 
 document.getElementById('accountSavePseudo').onclick = async ()=>{
   const input = document.getElementById('accountNewPseudo');
-  const newPseudo = input.value.trim();
+  const newPseudo = input.value.trim().replace(/\s+/g, ' ');
   if(newPseudo.length < 2){ toast("Le pseudo doit faire au moins 2 caractères."); return; }
   if(newPseudo === currentUser.pseudo){ toast("C'est déjà ton pseudo."); return; }
   const btn = document.getElementById('accountSavePseudo');
   btn.disabled = true;
+  const taken = "Ce pseudo est déjà pris. Choisis-en un autre.";
   try{
+    // 1) le pseudo doit être unique
+    const chk = await sb.rpc('pseudo_available', { p_pseudo: newPseudo });
+    if(!chk.error && chk.data === false){ toast(taken); return; }
+    // 2) on l'enregistre d'abord dans les profils (la base refuse un doublon), puis dans le compte
+    let prof = await sb.from('profiles').update({ pseudo: newPseudo }).eq('id', currentUser.id).select('id');
+    if(!prof.error && (!prof.data || !prof.data.length)){
+      prof = await sb.from('profiles').insert({ id: currentUser.id, pseudo: newPseudo });
+    }
+    if(prof.error){
+      toast(/duplicate|unique|23505/i.test((prof.error.code || '') + ' ' + (prof.error.message || '')) ? taken : "Impossible de changer le pseudo pour le moment.");
+      return;
+    }
     const { error } = await sb.auth.updateUser({ data: { pseudo: newPseudo } });
     if(error) throw error;
-    // Met à jour le pseudo sur les voyages déjà publiés et dans la table des profils
     await sb.from('trips').update({ pseudo: newPseudo }).eq('user_id', currentUser.id);
-    await sb.from('profiles').update({ pseudo: newPseudo }).eq('id', currentUser.id);
     currentUser.pseudo = newPseudo;
     document.getElementById('accountPseudo').textContent = newPseudo;
     input.value = '';
@@ -285,6 +298,9 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
   submitBtn.disabled = true;
   try{
     if(authMode === 'signup'){
+      if(pseudo.length < 2) throw new Error("Choisis un pseudo d'au moins 2 caractères.");
+      const chk = await sb.rpc('pseudo_available', { p_pseudo: pseudo });
+      if(!chk.error && chk.data === false) throw new Error("Ce pseudo est déjà pris. Choisis-en un autre.");
       const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo }, emailRedirectTo: SITE_URL + '/' } });
       if(error) throw error;
       if(!data.session){
@@ -303,7 +319,9 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
     toast(authMode === 'signup' ? "Bienvenue !" : "Connecté");
     refreshMemberCount();
   }catch(err){
-    errEl.textContent = err.message?.includes('Invalid login') ? "Email ou mot de passe incorrect." : (err.message || "Une erreur est survenue.");
+    errEl.textContent = err.message?.includes('Invalid login') ? "Email ou mot de passe incorrect."
+      : (/Database error saving new user/i.test(err.message || '') ? "Ce pseudo est peut-être déjà pris. Essaie avec un autre pseudo."
+      : (err.message || "Une erreur est survenue."));
     errEl.style.display = 'block';
   }finally{
     submitBtn.disabled = false;
@@ -741,11 +759,15 @@ function rowToTrip(row){
     story: row.story,
     photos: row.photos || [],
     likes: row.likes || 0,
-    pseudo: row.pseudo
+    pseudo: row.pseudo,
+    findable: !!row.findable
   };
 }
 
+let lastTripsUser;
 async function loadSupabaseTrips(){
+  lastTripsUser = currentUser ? currentUser.id : null;
+  if(!currentUser){ trips = []; render(); return; }
   const { data, error } = await sb.from('trips').select('*').order('date_start', { ascending:false });
   if(error){ toast("Impossible de charger les voyages."); return; }
   trips = (data || []).map(rowToTrip);
@@ -811,7 +833,8 @@ async function persistTrip(trip){
       date_end: trip.dateEnd || null,
       story: trip.story,
       photos: trip.photos,
-      likes: trip.likes || 0
+      likes: trip.likes || 0,
+      findable: !!trip.findable
     };
     if(trip.isExisting){
       const { error } = await sb.from('trips').update(row).eq('id', trip.id);
@@ -1244,6 +1267,7 @@ function openEditModal(trip){
   document.getElementById('dateStart').value = trip.dateStart || '';
   document.getElementById('dateEnd').value = trip.dateEnd || '';
   document.getElementById('storyInput').value = trip.story || '';
+  document.getElementById('tripFindable').checked = !!trip.findable;
   pendingPhotos = [];
   renderPreview();
   overlay._existingPhotos = trip.photos || [];
@@ -1360,14 +1384,17 @@ form.addEventListener('submit', async (e)=>{
     const dateEnd = document.getElementById('dateEnd').value;
     const story = document.getElementById('storyInput').value.trim();
     const photos = existing.concat(newPhotos);
+    const findable = document.getElementById('tripFindable').checked;
 
     if(editingId){
       // En modification, on ne touche qu'à cette étape (un seul pays)
       const countryCode = countryCodes[0];
+      const old = trips.find(t => t.id === editingId);
       const trip = {
         id: editingId, isExisting: true, countryCode,
         country: (COUNTRY_MAP[countryCode]||[])[1] || '',
-        city, dateStart, dateEnd, story, photos, createdAt: Date.now()
+        city, dateStart, dateEnd, story, photos, findable,
+        likes: old ? old.likes : 0, createdAt: Date.now()
       };
       await persistTrip(trip);
       toast("Étape mise à jour");
@@ -1378,7 +1405,7 @@ form.addEventListener('submit', async (e)=>{
           id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
           isExisting: false, countryCode,
           country: (COUNTRY_MAP[countryCode]||[])[1] || '',
-          city, dateStart, dateEnd, story, photos, createdAt: Date.now()
+          city, dateStart, dateEnd, story, photos, findable, createdAt: Date.now()
         };
         await persistTrip(trip);
       }
@@ -1467,19 +1494,24 @@ const SITE_URL = "https://voyages.escalesencouleurs.com";
 // Adresse /voyage/<identifiant> : carnet partagé, ouvert à tous en lecture seule
 const SHARE_MATCH = location.pathname.match(/^\/voyage\/([A-Za-z0-9_-]{8,64})\/?$/);
 const SHARE_TOKEN = SHARE_MATCH ? SHARE_MATCH[1] : null;
-if(SHARE_TOKEN) document.documentElement.classList.add('shared-mode');
+const FOLLOW_MATCH = location.pathname.match(/^\/voyageur\/([^\/]+)\/?$/);
+let FOLLOW_PSEUDO = null;
+try{ FOLLOW_PSEUDO = FOLLOW_MATCH ? decodeURIComponent(FOLLOW_MATCH[1]).trim() : null; }catch(e){ FOLLOW_PSEUDO = null; }
+const PUBLIC_VIEW = !!(SHARE_TOKEN || FOLLOW_MATCH);
+if(PUBLIC_VIEW) document.documentElement.classList.add('shared-mode');
 // sécurité : si l'état de connexion tarde, on n'efface pas l'écran indéfiniment
 setTimeout(() => document.body.classList.remove('auth-pending'), 3500);
 
 /* ----- Page d'accueil : visible uniquement pour un visiteur non connecté ----- */
 let wasLanding = null;
 function updateLanding(){
-  const showLanding = !!sb && !currentUser && !SHARE_TOKEN;
+  const showLanding = !!sb && !currentUser && !PUBLIC_VIEW;
   // la connexion fait passer de l'accueil à l'espace membre : on revient en haut de page
   if(wasLanding === true && !showLanding) window.scrollTo({ top: 0, behavior: 'smooth' });
   wasLanding = showLanding;
   document.getElementById('landing').style.display = showLanding ? 'flex' : 'none';
   document.getElementById('features').style.display = showLanding ? 'block' : 'none';
+  document.getElementById('follow').style.display = showLanding ? 'block' : 'none';
   const hero = document.querySelector('.hero');
   if(hero) hero.style.display = showLanding ? 'none' : '';
   document.body.classList.remove('auth-pending');
@@ -1492,6 +1524,31 @@ document.getElementById('ctaCreate').addEventListener('click', () => {
 document.getElementById('ctaLogin').addEventListener('click', () => {
   authMode = 'login';
   openAuthModal();
+});
+
+/* ----- Suivre un voyageur par son pseudo (sans compte) ----- */
+document.getElementById('followForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const input = byId('followInput'), msg = byId('followMsg'), btn = byId('followBtn');
+  const pseudo = input.value.trim().replace(/\s+/g, ' ');
+  const say = (t, err) => { msg.textContent = t; msg.classList.toggle('err', !!err); };
+  say('');
+  if(pseudo.length < 2){ say('Entrez le pseudo de la personne que vous suivez.', true); input.focus(); return; }
+  if(!sb){ say('La recherche sera disponible une fois le site connecté.', true); return; }
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'Recherche…';
+  try{
+    const { data, error } = await sb.rpc('find_traveler', { p_pseudo: pseudo });
+    if(error) throw error;
+    if(!data){ say("Ce pseudo n'existe pas ou le carnet est privé.", true); return; }
+    window.location.href = '/voyageur/' + encodeURIComponent(data.pseudo || pseudo);
+  }catch(err){
+    say('Recherche impossible pour le moment. Réessayez dans un instant.', true);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = label;
+  }
 });
 
 /* ----- Espace connecté : « Partager mon carnet de voyage » ----- */
@@ -1594,32 +1651,35 @@ function sharedCardHTML(t){
     '</div><span class="trip-dates">' + escapeHtml(formatDateRange(t.dateStart, t.dateEnd)) + '</span></div>' +
     (t.story ? '<p class="trip-story">' + escapeHtml(t.story) + '</p>' : '') + grid + '</article>';
 }
-async function initSharedView(){
-  document.title = 'Carnet de voyage partagé — Escales en couleurs';
-  const robots = document.createElement('meta');
-  robots.name = 'robots'; robots.content = 'noindex, nofollow';
-  document.head.appendChild(robots);
-  document.getElementById('siteTitle').setAttribute('contenteditable', 'false');
-  byId('svCta').addEventListener('click', () => { window.location.href = '/'; });
-  byId('svList').addEventListener('click', e => {
-    const b = e.target.closest('[data-ph]');
-    if(b) openLightbox(Number(b.dataset.ph));
-  });
-  const say = (title, sub) => { byId('svTitle').textContent = title; byId('svSub').textContent = sub || ''; };
-  if(!sb){ say('Carnet indisponible', "Le site n'est pas connecté à sa base de données."); return; }
+let sharedLastJson = null;
+function sharedSay(title, sub){ byId('svTitle').textContent = title; byId('svSub').textContent = sub || ''; }
+async function reloadSharedView(first){
+  if(!sb) return;
   try{
-    const { data, error } = await sb.rpc('get_shared_notebook', { p_token: SHARE_TOKEN });
-    if(error) throw error;
+    const res = SHARE_TOKEN
+      ? await sb.rpc('get_shared_notebook', { p_token: SHARE_TOKEN })
+      : await sb.rpc('find_traveler', { p_pseudo: FOLLOW_PSEUDO || '' });
+    if(res.error) throw res.error;
+    const data = res.data;
+    const json = JSON.stringify(data);
+    if(!first && json === sharedLastJson) return;                           // rien de nouveau
+    if(!first && byId('lightbox').classList.contains('open')) return;       // ne pas fermer une photo en cours de lecture
+    sharedLastJson = json;
     if(!data){
-      say('Ce lien n\u2019est plus valide', 'Le carnet n\u2019est plus partagé, ou le lien est incorrect. Demande un nouveau lien à son auteur.');
+      byId('svList').innerHTML = '';
+      byId('svNote').textContent = '';
+      if(SHARE_TOKEN) sharedSay('Ce lien n\u2019est plus valide', 'Le carnet n\u2019est plus partagé, ou le lien est incorrect. Demande un nouveau lien à son auteur.');
+      else sharedSay("Ce pseudo n'existe pas ou le carnet est privé.", "Vérifie l'orthographe du pseudo, ou demande à ton proche d'autoriser la recherche par pseudo.");
       return;
     }
     const list = (data.trips || []).map(rowToTrip);
     const pseudo = data.pseudo || 'un voyageur';
     document.title = 'Carnet de voyage de ' + pseudo + ' — Escales en couleurs';
     const countries = new Set(list.map(t => t.countryCode));
-    say('Carnet de voyage de ' + pseudo,
+    sharedSay('Carnet de voyage de ' + pseudo,
       list.length ? list.length + ' étape' + (list.length > 1 ? 's' : '') + ' · ' + countries.size + ' pays' : "Ce carnet ne contient pas encore d'étape.");
+    byId('svNote').textContent = SHARE_TOKEN ? '' :
+      'Seules les étapes que ' + pseudo + ' a choisi de rendre publiques sont affichées. La page se met à jour automatiquement.';
     allPhotosFlat = [];
     let html = '', lastYear = null;
     list.forEach(t => {
@@ -1629,8 +1689,24 @@ async function initSharedView(){
     });
     byId('svList').innerHTML = html;
   }catch(err){
-    say('Impossible de charger ce carnet', 'Réessaie dans un instant.');
+    if(first) sharedSay('Impossible de charger ce carnet', 'Réessaie dans un instant.');
   }
+}
+async function initSharedView(){
+  document.title = 'Carnet de voyage partagé — Escales en couleurs';
+  const robots = document.createElement('meta');
+  robots.name = 'robots'; robots.content = 'noindex, nofollow';
+  document.head.appendChild(robots);
+  document.getElementById('siteTitle').setAttribute('contenteditable', 'false');
+  byId('svCta').addEventListener('click', () => { window.location.href = '/'; });
+  byId('svHome').addEventListener('click', () => { window.location.href = '/'; });
+  byId('svList').addEventListener('click', e => {
+    const b = e.target.closest('[data-ph]');
+    if(b) openLightbox(Number(b.dataset.ph));
+  });
+  if(!sb){ sharedSay('Carnet indisponible', "Le site n'est pas connecté à sa base de données."); return; }
+  await reloadSharedView(true);
+  setInterval(() => { if(!document.hidden) reloadSharedView(false); }, 60000);   // « en direct »
 }
 
 /* ----- Guide & Aide (Guide Ultime, À propos, FAQ) ----- */
@@ -1664,7 +1740,7 @@ document.getElementById('privacyOverlay').addEventListener('click', e=>{
   if(e.target.id === 'privacyOverlay') document.getElementById('privacyOverlay').classList.remove('open');
 });
 
-if(SHARE_TOKEN){
+if(PUBLIC_VIEW){
   initSharedView();
 } else {
   populateCountrySelect();
