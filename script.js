@@ -67,15 +67,15 @@ function applyEditableGate(){
 
   // Bouton « Statistiques » : créé uniquement pour l'administrateur connecté,
   // il n'existe pas dans la page pour les visiteurs ni pour les autres membres.
-  const adminOnly = !!(sb && currentUser && currentUser.email === OWNER_EMAIL);
+  const adminOnly = !!(sb && currentUser && (currentUser.email || '').toLowerCase() === OWNER_EMAIL);
   const statsBtn = document.getElementById('adminStatsBtn');
   if(adminOnly && !statsBtn){
     const a = document.createElement('a');
     a.id = 'adminStatsBtn';
     a.className = 'btn btn-ghost btn-small';
     a.href = '/admin-stats';
-    a.title = 'Statistiques du site (administrateur)';
-    a.textContent = '📊 Statistiques';
+    a.title = 'Espace administrateur : statistiques du site';
+    a.textContent = '📊 Espace Admin';
     const anchor = document.getElementById('openGuideUltime');
     anchor.parentNode.insertBefore(a, anchor);
   } else if(!adminOnly && statsBtn){
@@ -1506,7 +1506,9 @@ async function dbRun(builder, okMsg){
 
 /* ===================== Accueil, partage du carnet, adresse de production ===================== */
 // Adresse officielle du site : utilisée dans les e-mails d'authentification et dans les liens de partage.
-const SITE_URL = "https://voyages.escalesencouleurs.com";
+// Adresse du site : celle où l'application est réellement hébergée (escalesencouleurs.com ou l'un de ses sous-domaines).
+// Partout ailleurs (aperçu, test local), on retombe sur l'adresse de production.
+const SITE_URL = /(^|\.)escalesencouleurs\.com$/.test(location.hostname) ? location.origin : "https://voyages.escalesencouleurs.com";
 
 // Adresse /voyage/<identifiant> : carnet partagé, ouvert à tous en lecture seule
 const SHARE_MATCH = location.pathname.match(/^\/voyage\/([A-Za-z0-9_-]{8,64})\/?$/);
@@ -1790,7 +1792,7 @@ async function initAdminStats(){
   try{ const r = await sb.auth.getSession(); session = r.data && r.data.session; }catch(e){}
   // confort : on renvoie tout de suite vers l'accueil quiconque n'est pas l'administrateur.
   // La vraie protection est dans la base : la fonction get_admin_stats ne répond qu'à ton adresse.
-  if(!session || !session.user || session.user.email !== OWNER_EMAIL){ leave(); return; }
+  if(!session || !session.user || (session.user.email || '').toLowerCase() !== OWNER_EMAIL){ leave(); return; }
   byId('statsRefresh').addEventListener('click', loadAdminStats);
   await loadAdminStats();
 }
