@@ -572,6 +572,7 @@
   .legal-text h3{font-family:var(--font-display);font-size:16px;margin:18px 0 6px;}
   .legal-text h3:first-child{margin-top:0;}
   .legal-text p{margin:0 0 10px;color:var(--ink-soft);}
+  .legal-text a{color:var(--stamp);font-weight:600;text-decoration:underline;text-underline-offset:2px;}
 
   .toast{
     position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
