@@ -1546,6 +1546,15 @@ document.getElementById('ctaLogin').addEventListener('click', () => {
 });
 
 /* ----- Suivre un voyageur par son pseudo (sans compte) ----- */
+// search_traveler retrouve le carnet ET ajoute +1 au compteur « Suivis par Pseudo » si un carnet est trouvé.
+// Si la base n'a pas encore cette fonction, on retombe sur find_traveler : la recherche marche toujours (sans compter).
+async function searchTraveler(pseudo){
+  let res = await sb.rpc('search_traveler', { p_pseudo: pseudo });
+  if(res.error && (res.error.code === 'PGRST202' || /could not find the function|schema cache/i.test(res.error.message || ''))){
+    res = await sb.rpc('find_traveler', { p_pseudo: pseudo });
+  }
+  return res;
+}
 document.getElementById('followForm').addEventListener('submit', async e => {
   e.preventDefault();
   const input = byId('followInput'), msg = byId('followMsg'), btn = byId('followBtn');
@@ -1558,7 +1567,7 @@ document.getElementById('followForm').addEventListener('submit', async e => {
   const label = btn.textContent;
   btn.textContent = 'Recherche…';
   try{
-    const { data, error } = await sb.rpc('find_traveler', { p_pseudo: pseudo });
+    const { data, error } = await searchTraveler(pseudo);
     if(error) throw error;
     if(!data){ say("Ce pseudo n'existe pas ou le carnet est privé.", true); return; }
     window.location.href = '/voyageur/' + encodeURIComponent(data.pseudo || pseudo);
@@ -1754,6 +1763,9 @@ if(ADMIN_VIEW) document.documentElement.classList.add('admin-mode');
 // +1 à chaque chargement de la page d'accueil (visiteurs anonymes ou connectés). Silencieux en cas d'échec.
 function countPageView(){
   if(!sb) return;
+  // uniquement la page d'accueil : jamais une autre adresse (carnets partagés, statistiques…).
+  // Le guide, l'aide et les mentions légales sont des fenêtres de cette même page : elles ne rechargent rien et ne comptent pas.
+  if(location.pathname !== '/' && location.pathname !== '/index.html') return;
   try{ sb.rpc('increment_page_views').then(() => {}, () => {}); }catch(e){}
 }
 const fmtInt = n => Number(n).toLocaleString('fr-FR');
@@ -1772,8 +1784,10 @@ async function loadAdminStats(){
   }
   if(!data){ window.location.replace('/'); return; }   // la base refuse : ce n'est pas l'administrateur
   const views = Number(data.views) || 0, members = Number(data.members) || 0;
-  const values = { statViews: views, statMembers: members, statGuests: Math.max(0, views - members) };
-  Object.keys(values).forEach(id => { byId(id).textContent = fmtInt(values[id]); });
+  // « – » tant que la base n'a pas la nouvelle colonne (script SQL pas encore lancé)
+  const follows = (data.pseudo_searches === undefined || data.pseudo_searches === null) ? null : (Number(data.pseudo_searches) || 0);
+  const values = { statViews: views, statMembers: members, statFollows: follows };
+  Object.keys(values).forEach(id => { byId(id).textContent = values[id] === null ? '–' : fmtInt(values[id]); });
   // même taille pour les trois chiffres : on se règle sur le plus long
   const longest = Math.max.apply(null, Object.keys(values).map(id => byId(id).textContent.length));
   Object.keys(values).forEach(id => { byId(id).dataset.len = String(longest); });
