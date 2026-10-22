@@ -209,20 +209,10 @@
       <p class="as-status" id="statsStatus">Vérification de l'accès…</p>
     </div>
     <div class="as-grid" id="statsGrid" hidden>
-      <article class="as-card as-c1">
-        <p class="as-label">Visites Totales</p>
-        <p class="as-num" id="statViews">–</p>
-        <p class="as-hint">Chaque chargement de la page d'accueil. Le guide, l'aide et les mentions légales ne comptent pas.</p>
-      </article>
       <article class="as-card as-c2">
         <p class="as-label">Voyageurs Inscrits</p>
         <p class="as-num" id="statMembers">–</p>
         <p class="as-hint">Comptes créés sur le site.</p>
-      </article>
-      <article class="as-card as-c3">
-        <p class="as-label">Suivis par Pseudo</p>
-        <p class="as-num" id="statFollows">–</p>
-        <p class="as-hint">Recherches de pseudo réussies depuis l'accueil : celles qui ouvrent un carnet.</p>
       </article>
     </div>
     <p class="form-error" id="statsError" style="display:none;"></p>
@@ -402,6 +392,8 @@
   </div>
 </div>
 
+<input type="file" id="replacePhotoInput" accept="image/*" style="display:none">
+
 <!-- Guide & Aide : Guide Ultime, À propos, FAQ -->
 <div class="overlay" id="guideUltimeOverlay">
   <div class="modal legal-modal gu-modal" role="dialog" aria-modal="true" aria-labelledby="guTitle">
@@ -528,7 +520,6 @@
       Lors de l'ajout d'une étape : les informations et photos que vous choisissez de publier.<br>
       Lors de l'envoi d'un message : le nom, message et coordonnées que vous indiquez (facultatifs, sauf le message).</p>
       <p>Votre pseudo permet de retrouver les étapes que vous choisissez de rendre publiques (case « Autoriser la recherche par pseudo », décochée par défaut) : toute personne qui connaît votre pseudo peut alors les consulter, sans compte. Si vous créez un lien de partage, toute personne qui le possède peut consulter votre carnet en lecture seule ; vous pouvez le désactiver à tout moment.</p>
-      <p>Le site compte aussi le nombre de visites de sa page d'accueil et le nombre de recherches de pseudo réussies, avec de simples compteurs globaux qui n'identifient personne.</p>
 
       <h3>Utilisation</h3>
       <p>Ces données servent uniquement au fonctionnement du site : afficher votre pseudo, vous permettre de vous reconnecter, transmettre les messages envoyés via la bulle de contact, et permettre à vos proches de retrouver les étapes que vous rendez publiques.</p>
