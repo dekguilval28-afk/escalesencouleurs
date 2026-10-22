@@ -534,13 +534,13 @@
   .as-head{text-align:center;margin:0 0 34px;}
   .as-head h1{font-family:var(--font-display);font-size:clamp(28px,5vw,42px);font-weight:600;margin:6px 0 10px;}
   .as-status{margin:0;font-size:14px;color:var(--ink-soft);min-height:20px;}
-  .as-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:22px;}
+  .as-grid{display:grid;grid-template-columns:minmax(0,440px);justify-content:center;gap:22px;}
   .as-grid[hidden],.as-actions[hidden]{display:none;}
   .as-card{
     background:var(--card-bg);border:1px solid var(--line);border-top:7px solid var(--c);
     border-radius:20px;padding:26px 26px 24px;box-shadow:0 12px 30px rgba(0,0,0,.14);
   }
-  .as-c1{--c:var(--stamp);} .as-c2{--c:#2b8ab5;} .as-c3{--c:var(--gold);}
+  .as-c2{--c:#2b8ab5;}
   .as-label{margin:0;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink-soft);font-weight:600;}
   .as-card{container-type:inline-size;}
   .as-num{
@@ -554,10 +554,24 @@
     .as-num[data-len="7"],.as-num[data-len="8"],.as-num[data-len="9"]{font-size:clamp(28px,16cqw,70px);}
     .as-num[data-len="10"],.as-num[data-len="11"],.as-num[data-len="12"],.as-num[data-len="13"]{font-size:clamp(24px,12cqw,60px);}
   }
-  @media (min-width:700px){ .as-label{min-height:2.7em;} }
   .as-hint{margin:0;font-size:13.5px;line-height:1.5;color:var(--ink-soft);}
   .as-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:30px;}
   .as-actions a.btn{text-decoration:none;display:inline-block;}
+
+  /* ---------- Gestion des photos par leur auteur ---------- */
+  .photo-item{position:relative;aspect-ratio:1/1;border-radius:5px;overflow:hidden;}
+  .photo-grid .photo-item > button:first-child{width:100%;height:100%;}
+  .photo-grid .photo-del{
+    position:absolute;top:6px;right:6px;width:28px;height:28px;aspect-ratio:auto;padding:0;
+    display:flex;align-items:center;justify-content:center;border:2px solid #fff;border-radius:50%;
+    background:#d23b3b;color:#fff;font-size:18px;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.45);
+  }
+  .photo-grid .photo-del:hover{background:#b02a2a;}
+  .photo-grid .photo-repl{
+    position:absolute;left:6px;bottom:6px;aspect-ratio:auto;padding:4px 10px;border:0;border-radius:999px;
+    background:rgba(20,24,30,.8);color:#fff;font-size:12px;line-height:1.2;
+  }
+  .photo-grid .photo-repl:hover{background:rgba(20,24,30,.96);}
 
   footer{
     text-align:center;padding:30px 0 40px;color:var(--ink-soft);font-size:12.5px;
