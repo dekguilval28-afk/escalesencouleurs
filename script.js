@@ -1069,7 +1069,8 @@ function renderTripCard(trip){
     <div class="photo-grid"></div>
   `;
   const grid = el.querySelector('.photo-grid');
-  (trip.photos||[]).forEach(p=>{
+  const mine = canEditTrip(trip) && ownsTrip(trip);   // boutons réservés à l'auteur connecté
+  (trip.photos||[]).forEach((p, photoIndex)=>{
     const url = photoUrl(p);
     if(!url) return;
     const globalIndex = allPhotosFlat.length;
@@ -1078,7 +1079,19 @@ function renderTripCard(trip){
     b.type = 'button';
     b.innerHTML = `<img src="${url}" loading="lazy" alt="" draggable="false">`;
     b.onclick = ()=>openLightbox(globalIndex);
-    grid.appendChild(b);
+    if(!mine){ grid.appendChild(b); return; }
+    const item = document.createElement('div');
+    item.className = 'photo-item';
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'photo-del'; del.textContent = '×';
+    del.title = 'Supprimer cette photo'; del.setAttribute('aria-label', 'Supprimer cette photo');
+    del.onclick = ()=>deleteTripPhoto(trip, photoIndex);
+    const repl = document.createElement('button');
+    repl.type = 'button'; repl.className = 'photo-repl'; repl.textContent = '↻ Remplacer';
+    repl.title = 'Remplacer cette photo'; repl.setAttribute('aria-label', 'Remplacer cette photo');
+    repl.onclick = ()=>replaceTripPhoto(trip, photoIndex);
+    item.append(b, del, repl);
+    grid.appendChild(item);
   });
 
   const likeBtn = el.querySelector('[data-act="like"]');
@@ -1546,15 +1559,6 @@ document.getElementById('ctaLogin').addEventListener('click', () => {
 });
 
 /* ----- Suivre un voyageur par son pseudo (sans compte) ----- */
-// search_traveler retrouve le carnet ET ajoute +1 au compteur « Suivis par Pseudo » si un carnet est trouvé.
-// Si la base n'a pas encore cette fonction, on retombe sur find_traveler : la recherche marche toujours (sans compter).
-async function searchTraveler(pseudo){
-  let res = await sb.rpc('search_traveler', { p_pseudo: pseudo });
-  if(res.error && (res.error.code === 'PGRST202' || /could not find the function|schema cache/i.test(res.error.message || ''))){
-    res = await sb.rpc('find_traveler', { p_pseudo: pseudo });
-  }
-  return res;
-}
 document.getElementById('followForm').addEventListener('submit', async e => {
   e.preventDefault();
   const input = byId('followInput'), msg = byId('followMsg'), btn = byId('followBtn');
@@ -1567,7 +1571,7 @@ document.getElementById('followForm').addEventListener('submit', async e => {
   const label = btn.textContent;
   btn.textContent = 'Recherche…';
   try{
-    const { data, error } = await searchTraveler(pseudo);
+    const { data, error } = await sb.rpc('find_traveler', { p_pseudo: pseudo });
     if(error) throw error;
     if(!data){ say("Ce pseudo n'existe pas ou le carnet est privé.", true); return; }
     window.location.href = '/voyageur/' + encodeURIComponent(data.pseudo || pseudo);
@@ -1760,14 +1764,6 @@ document.getElementById('guideUltimeOverlay').addEventListener('click', e => {
 const ADMIN_VIEW = /^\/admin-stats\/?$/.test(location.pathname);
 if(ADMIN_VIEW) document.documentElement.classList.add('admin-mode');
 
-// +1 à chaque chargement de la page d'accueil (visiteurs anonymes ou connectés). Silencieux en cas d'échec.
-function countPageView(){
-  if(!sb) return;
-  // uniquement la page d'accueil : jamais une autre adresse (carnets partagés, statistiques…).
-  // Le guide, l'aide et les mentions légales sont des fenêtres de cette même page : elles ne rechargent rien et ne comptent pas.
-  if(location.pathname !== '/' && location.pathname !== '/index.html') return;
-  try{ sb.rpc('increment_page_views').then(() => {}, () => {}); }catch(e){}
-}
 const fmtInt = n => Number(n).toLocaleString('fr-FR');
 
 async function loadAdminStats(){
@@ -1783,14 +1779,10 @@ async function loadAdminStats(){
     return;
   }
   if(!data){ window.location.replace('/'); return; }   // la base refuse : ce n'est pas l'administrateur
-  const views = Number(data.views) || 0, members = Number(data.members) || 0;
-  // « – » tant que la base n'a pas la nouvelle colonne (script SQL pas encore lancé)
-  const follows = (data.pseudo_searches === undefined || data.pseudo_searches === null) ? null : (Number(data.pseudo_searches) || 0);
-  const values = { statViews: views, statMembers: members, statFollows: follows };
-  Object.keys(values).forEach(id => { byId(id).textContent = values[id] === null ? '–' : fmtInt(values[id]); });
-  // même taille pour les trois chiffres : on se règle sur le plus long
-  const longest = Math.max.apply(null, Object.keys(values).map(id => byId(id).textContent.length));
-  Object.keys(values).forEach(id => { byId(id).dataset.len = String(longest); });
+  const members = Number(data.members) || 0;
+  const el = byId('statMembers');
+  el.textContent = fmtInt(members);
+  el.dataset.len = String(el.textContent.length);
   byId('statsGrid').hidden = false;
   byId('statsActions').hidden = false;
   status.textContent = 'Dernière mise à jour : ' + new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
@@ -1810,6 +1802,85 @@ async function initAdminStats(){
   byId('statsRefresh').addEventListener('click', loadAdminStats);
   await loadAdminStats();
 }
+
+/* ----- Photos : supprimer ou remplacer une photo de ses PROPRES étapes, à tout moment ----- */
+let photoBusy = false, replaceTarget = null;
+function ownsTrip(trip){
+  if(storageMode === 'supabase') return !!(currentUser && trip.userId && trip.userId === currentUser.id);
+  return true;   // mode local / démo : ce sont tes propres données
+}
+function storagePathFromUrl(url){
+  const m = String(url || '').match(/\/storage\/v1\/object\/public\/trip-photos\/([^?]+)/);
+  return m ? decodeURIComponent(m[1]) : null;   // les liens externes et les images intégrées n'ont pas de fichier à supprimer
+}
+async function removeStoredFile(photo){
+  if(storageMode !== 'supabase') return;
+  const path = storagePathFromUrl(photoUrl(photo));
+  if(path){ try{ await sb.storage.from('trip-photos').remove([path]); }catch(e){} }
+}
+// Enregistre UNIQUEMENT la liste de photos, et seulement sur une étape qui appartient à l'utilisateur connecté.
+async function savePhotosOnly(trip, newPhotos){
+  if(!ownsTrip(trip)){ toast("Tu ne peux modifier que les photos de tes propres étapes."); return false; }
+  if(storageMode === 'supabase'){
+    const { data, error } = await sb.from('trips').update({ photos: newPhotos }).eq('id', trip.id).eq('user_id', currentUser.id).select('id');
+    if(error || !data || !data.length){ toast("Impossible de modifier cette photo."); return false; }
+    return true;
+  }
+  await persistTrip({ ...trip, photos: newPhotos, isExisting: true });
+  return true;
+}
+async function deleteTripPhoto(trip, index){
+  if(photoBusy) return;
+  const photo = (trip.photos || [])[index];
+  if(!photo) return;
+  if(!ownsTrip(trip)){ toast("Tu ne peux modifier que les photos de tes propres étapes."); return; }
+  if(!confirm('Supprimer cette photo ? Cette action est définitive.')) return;
+  photoBusy = true;
+  try{
+    if(await savePhotosOnly(trip, trip.photos.filter((_, i) => i !== index))){
+      await removeStoredFile(photo);
+      toast('Photo supprimée');
+      if(storageMode === 'supabase') await loadSupabaseTrips();
+    }
+  }catch(err){ toast("Impossible de supprimer la photo."); }
+  finally{ photoBusy = false; }
+}
+function replaceTripPhoto(trip, index){
+  if(photoBusy) return;
+  if(!ownsTrip(trip)){ toast("Tu ne peux modifier que les photos de tes propres étapes."); return; }
+  replaceTarget = { trip, index };
+  const input = document.getElementById('replacePhotoInput');
+  input.value = '';
+  input.click();
+}
+document.getElementById('replacePhotoInput').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  const target = replaceTarget;
+  replaceTarget = null;
+  e.target.value = '';
+  if(!file || !target || photoBusy) return;
+  if(!/^image\//.test(file.type)){ toast("Ce fichier n'est pas une image."); return; }
+  const { trip, index } = target;
+  const old = (trip.photos || [])[index];
+  if(!old || !ownsTrip(trip)){ toast("Tu ne peux modifier que les photos de tes propres étapes."); return; }
+  photoBusy = true;
+  let uploadedUrl = null;
+  try{
+    toast('Envoi de la photo…');
+    const blob = await resizeImage(file);
+    let newPhoto;
+    if(storageMode === 'supabase'){ uploadedUrl = await uploadToSupabase(blob); newPhoto = { url: uploadedUrl }; }
+    else newPhoto = { url: await blobToDataURL(blob) };
+    if(await savePhotosOnly(trip, trip.photos.map((p, i) => i === index ? newPhoto : p))){
+      await removeStoredFile(old);
+      toast('Photo remplacée');
+      if(storageMode === 'supabase') await loadSupabaseTrips();
+    } else if(uploadedUrl){
+      await removeStoredFile({ url: uploadedUrl });   // pas de fichier orphelin si l'enregistrement a échoué
+    }
+  }catch(err){ toast("Impossible de remplacer la photo."); }
+  finally{ photoBusy = false; }
+});
 
 document.getElementById('footerYear').textContent = new Date().getFullYear();
 document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
@@ -1831,5 +1902,4 @@ if(ADMIN_VIEW){
   populateCountrySelect();
   restoreSession();
   initStorage();
-  countPageView();
 }
