@@ -573,6 +573,20 @@
   }
   .photo-grid .photo-repl:hover{background:rgba(20,24,30,.96);}
 
+  /* ---------- Barre de partage (carnet public et fenêtre de partage) ---------- */
+  .share-bar{margin:18px 0 6px;}
+  .share-bar-center{text-align:center;}
+  .share-title{margin:0 0 10px;font-size:13px;letter-spacing:1.2px;text-transform:uppercase;color:var(--ink-soft);font-weight:600;}
+  .share-buttons{display:flex;flex-wrap:wrap;gap:8px;}
+  .share-bar-center .share-buttons{justify-content:center;}
+  .share-btn{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;
+    background:var(--card-bg);color:var(--ink);font-family:inherit;font-size:14px;line-height:1.2;cursor:pointer;text-decoration:none;
+    transition:transform .15s ease,border-color .15s ease;
+  }
+  .share-btn:hover{transform:translateY(-1px);border-color:var(--gold);}
+  .share-btn .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
   footer{
     text-align:center;padding:30px 0 40px;color:var(--ink-soft);font-size:12.5px;
     border-top:1px solid var(--line);margin-top:20px;
