@@ -1621,13 +1621,14 @@ async function renderShareNotebook(){
     '<p class="adm-note">' + escapeHtml(countTxt) + '</p>' +
     '<div class="sn-row"><input type="text" id="shareNbUrl" class="adm-input" readonly value="' + escapeAttr(url) + '" aria-label="Lien de partage">' +
       '<button type="button" class="btn btn-solid" id="shareNbCopy" data-sn="copy">Copier le lien</button></div>' +
+    '<div id="shareNbBar" class="share-bar"></div>' +
     '<div class="sn-actions">' +
-      '<a class="btn btn-ghost btn-small" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=' + encodeURIComponent(msg) + '">WhatsApp</a>' +
-      '<a class="btn btn-ghost btn-small" href="mailto:?subject=' + encodeURIComponent('Mon carnet de voyage') + '&body=' + encodeURIComponent(msg) + '">E-mail</a>' +
       '<button type="button" class="btn btn-ghost btn-small" data-sn="regen">Nouveau lien</button>' +
       '<button type="button" class="btn btn-ghost btn-small" data-sn="disable">Désactiver le partage</button>' +
     '</div>' +
-    '<p class="adm-note">« Nouveau lien » rend l\u2019ancien lien inutilisable. « Désactiver » coupe l\u2019accès immédiatement.</p>';
+    '<p class="adm-note"><b>Nouveau lien</b> : crée une nouvelle adresse, et l\u2019ancienne ne fonctionne plus (utile si le lien a trop circulé).</p>' +
+    '<p class="adm-note"><b>Désactiver le partage</b> : plus personne ne peut voir ton carnet avec ce lien, jusqu\u2019à ce que tu en génères un autre.</p>';
+  renderShareBar(byId('shareNbBar'), url, 'Mon carnet de voyage');
 }
 
 document.getElementById('openShareNotebook').addEventListener('click', () => {
@@ -1700,6 +1701,7 @@ async function reloadSharedView(first){
     if(!data){
       byId('svList').innerHTML = '';
       byId('svNote').textContent = '';
+      byId('svShare').innerHTML = '';
       if(SHARE_TOKEN) sharedSay('Ce lien n\u2019est plus valide', 'Le carnet n\u2019est plus partagé, ou le lien est incorrect. Demande un nouveau lien à son auteur.');
       else sharedSay("Ce pseudo n'existe pas ou le carnet est privé.", "Vérifie l'orthographe du pseudo, ou demande à ton proche d'autoriser la recherche par pseudo.");
       return;
@@ -1720,6 +1722,7 @@ async function reloadSharedView(first){
       html += sharedCardHTML(t);
     });
     byId('svList').innerHTML = html;
+    if(first || !byId('svShare').firstChild) renderShareBar(byId('svShare'), SITE_URL + location.pathname, 'Carnet de voyage de ' + pseudo);
   }catch(err){
     if(first) sharedSay('Impossible de charger ce carnet', 'Réessaie dans un instant.');
   }
@@ -1801,6 +1804,61 @@ async function initAdminStats(){
   if(!session || !session.user || (session.user.email || '').toLowerCase() !== OWNER_EMAIL){ leave(); return; }
   byId('statsRefresh').addEventListener('click', loadAdminStats);
   await loadAdminStats();
+}
+
+/* ----- Barre de partage : WhatsApp, Facebook, e-mail, Instagram, TikTok, YouTube, copie du lien ----- */
+async function copyToClipboard(text){
+  try{ await navigator.clipboard.writeText(text); return true; }catch(e){}
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch(e){}
+  ta.remove();
+  return ok;
+}
+// Facebook, WhatsApp et e-mail ont une vraie adresse de partage. Instagram, TikTok et YouTube n'en ont pas :
+// pour eux, le bouton copie le lien et ouvre le réseau, où il suffit de le coller.
+function renderShareBar(container, url, title){
+  if(!container) return;
+  const text = title + ' — Escales en couleurs';
+  const enc = encodeURIComponent;
+  const items = [
+    { label:'WhatsApp', color:'#25D366', href:'https://wa.me/?text=' + enc(text + ' ' + url) },
+    { label:'Facebook', color:'#1877F2', href:'https://www.facebook.com/sharer/sharer.php?u=' + enc(url) },
+    { label:'E-mail', color:'#6b7280', href:'mailto:?subject=' + enc(title) + '&body=' + enc(text + '\n\n' + url) },
+    { label:'Instagram', color:'#E1306C', open:'https://www.instagram.com/' },
+    { label:'TikTok', color:'#111111', open:'https://www.tiktok.com/' },
+    { label:'YouTube', color:'#FF0000', open:'https://www.youtube.com/' }
+  ];
+  container.innerHTML = '<p class="share-title">Partager ce carnet</p><div class="share-buttons"></div>';
+  const row = container.querySelector('.share-buttons');
+  items.forEach(it => {
+    const el = document.createElement(it.href ? 'a' : 'button');
+    el.className = 'share-btn';
+    el.innerHTML = '<span class="dot" style="background:' + it.color + '"></span>' + it.label;
+    if(it.href){ el.href = it.href; el.target = '_blank'; el.rel = 'noopener noreferrer'; }
+    else {
+      el.type = 'button';
+      el.title = 'Copie le lien et ouvre ' + it.label + ' : il ne reste qu\u2019à le coller';
+      el.onclick = () => {
+        copyToClipboard(url).then(ok => toast(ok ? 'Lien copié : colle-le dans ' + it.label + '.' : 'Copie impossible : copie le lien à la main.'));
+        window.open(it.open, '_blank', 'noopener');
+      };
+    }
+    row.appendChild(el);
+  });
+  if(navigator.share){
+    const n = document.createElement('button');
+    n.type = 'button'; n.className = 'share-btn'; n.textContent = 'Partager…';
+    n.title = 'Ouvre le menu de partage de ton appareil';
+    n.onclick = () => { navigator.share({ title: title, text: text, url: url }).catch(() => {}); };
+    row.appendChild(n);
+  }
+  const cp = document.createElement('button');
+  cp.type = 'button'; cp.className = 'share-btn'; cp.textContent = 'Copier le lien';
+  cp.onclick = () => { copyToClipboard(url).then(ok => toast(ok ? 'Lien copié !' : 'Copie impossible : copie le lien à la main.')); };
+  row.appendChild(cp);
 }
 
 /* ----- Photos : supprimer ou remplacer une photo de ses PROPRES étapes, à tout moment ----- */
