@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de cookies — Escales en couleurs</title>
+<meta name="description" content="Escales en couleurs n&#x27;utilise aucun cookie : détail du stockage local du navigateur et absence de consentement requis.">
+<meta name="robots" content="index, follow">
+<link rel="icon" href="data:,">
+<style>
+:root{--bg:#f6f1e7;--card:#fffdf8;--ink:#1f2933;--soft:#5b6470;--line:#e1d8c6;--accent:#a8432b}
+@media (prefers-color-scheme:dark){:root{--bg:#161d23;--card:#1e262d;--ink:#eee7d8;--soft:#aab2bb;--line:#33404a;--accent:#e58a72}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.65}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;max-width:860px;margin:0 auto;padding:18px 20px 10px}
+.brand{font-family:Georgia,"Times New Roman",serif;font-weight:bold;font-size:22px;color:var(--ink);text-decoration:none}
+.back{color:var(--accent);text-decoration:none;font-size:14px;font-weight:600}
+.docnav{max-width:860px;margin:0 auto;padding:6px 20px 12px;display:flex;flex-wrap:wrap;gap:8px}
+.docnav a{padding:7px 14px;border:1px solid var(--line);border-radius:999px;color:var(--ink);text-decoration:none;font-size:14px;background:var(--card)}
+.docnav a[aria-current="page"]{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:860px;margin:0 auto;padding:6px 20px 36px}
+article{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px 26px}
+h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(26px,5vw,36px);margin:0 0 6px;line-height:1.2}
+.updated{color:var(--soft);font-size:14px;margin:0 0 20px}
+h2{font-family:Georgia,"Times New Roman",serif;font-size:21px;margin:30px 0 8px;line-height:1.3}
+h3{font-size:16px;margin:18px 0 4px}
+p,li{font-size:16px} ul,ol{padding-left:22px} li{margin:5px 0}
+a{color:var(--accent)}
+.toc{border:1px solid var(--line);border-radius:10px;padding:10px 16px;margin:0 0 6px;font-size:15px}
+.toc ol{margin:6px 0}
+.tablewrap{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:14.5px}
+th,td{border:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+th{background:rgba(168,67,43,.09)}
+code{background:rgba(127,127,127,.15);padding:1px 6px;border-radius:5px;font-size:14px}
+.note{border-left:4px solid var(--accent);background:rgba(168,67,43,.08);padding:10px 14px;border-radius:0 8px 8px 0;margin:14px 0}
+footer{max-width:860px;margin:0 auto;padding:10px 20px 40px;text-align:center;color:var(--soft);font-size:14px}
+footer a{color:var(--soft)}
+@media (max-width:600px){article{padding:20px 16px}}
+</style>
+</head>
+<body>
+<header class="top"><a class="brand" href="/">Escales en couleurs</a><a class="back" href="/">← Retour au site</a></header>
+<nav class="docnav" aria-label="Informations légales"><a href="/mentions-legales">Mentions légales</a><a href="/confidentialite">Confidentialité</a><a href="/conditions">Conditions d'utilisation</a><a href="/cookies" aria-current="page">Cookies</a></nav>
+<main>
+<article>
+<h1>Politique de cookies</h1>
+<p class="updated">Dernière mise à jour : 7 novembre 2026</p>
+
+<div class="note"><strong>En bref :</strong> le site n'utilise <strong>aucun cookie</strong>, ni publicitaire, ni de mesure d'audience, ni de suivi. Il utilise seulement le stockage local de votre navigateur pour des fonctions que vous demandez (rester connecté, retrouver vos messages envoyés, mémoriser vos « j'aime »). Ces usages sont dispensés de consentement : il n'y a donc pas de bandeau à accepter.</div>
+<h2 id="quoi">1. Ce que sont les traceurs</h2>
+<p>Un cookie ou un autre traceur est une petite information enregistrée sur votre appareil par un site. En France, la CNIL considère que le stockage local d'un navigateur est soumis aux mêmes règles que les cookies. Votre accord est nécessaire avant de les utiliser, sauf s'ils sont strictement nécessaires au service que vous demandez (par exemple pour rester connecté) ou à une fonction que vous avez demandée.</p>
+<h2 id="liste">2. Ce que le site enregistre dans votre navigateur</h2>
+<div class="tablewrap"><table>
+<tr><th>Nom</th><th>À quoi cela sert</th><th>Durée</th><th>Consentement</th></tr>
+<tr><td><code>sb-…-auth-token</code> (stockage local)</td><td>Vous garder connecté à votre compte (jeton de session fourni par Supabase)</td><td>Jusqu'à votre déconnexion ou l'expiration de la session</td><td>Non : strictement nécessaire à l'authentification que vous demandez</td></tr>
+<tr><td><code>sent-messages</code> (stockage local)</td><td>Retrouver, sur cet appareil, les messages que vous avez envoyés avec la bulle 💬 (« Voir mes messages envoyés »)</td><td>Jusqu'à ce que vous effaciez les données de votre navigateur</td><td>Non : fonction que vous avez demandée</td></tr>
+<tr><td><code>liked-…</code> (stockage local)</td><td>Se souvenir des étapes que vous avez aimées, pour ne pas compter deux fois</td><td>Jusqu'à ce que vous effaciez les données de votre navigateur</td><td>Non : fonction que vous avez demandée</td></tr>
+<tr><td><code>carnet-voyage-trips</code> (stockage local)</td><td>Mode de secours : enregistrer des étapes sur l'appareil uniquement si le site ne peut pas joindre sa base de données. Normalement inutilisé.</td><td>Jusqu'à ce que vous effaciez les données de votre navigateur</td><td>Non : fonction que vous avez demandée</td></tr>
+</table></div>
+<p>Le site ne dépose <strong>aucun cookie</strong> et n'utilise ni Google Analytics, ni pixel publicitaire, ni vidéo intégrée, ni bouton de réseau social chargé automatiquement.</p>
+<h2 id="tiers">3. Services chargés à l'affichage des pages</h2>
+<p>Pour s'afficher, le site charge des polices de caractères depuis Google Fonts (Google) et une bibliothèque technique depuis jsDelivr. Ce ne sont pas des traceurs que nous déposons chez vous, mais ces services reçoivent votre adresse IP et des informations techniques de votre navigateur, comme toute ressource chargée depuis un autre serveur. Voir la <a href="/confidentialite#destinataires">politique de confidentialité</a>.</p>
+<p>Les boutons de partage (WhatsApp, Facebook, e-mail, Instagram, TikTok, YouTube) sont de simples liens : rien n'est chargé depuis ces services avant votre clic.</p>
+<h2 id="gerer">4. Les contrôler ou les effacer</h2>
+<p>Vous pouvez à tout moment effacer les données du site dans les réglages de votre navigateur (rubrique « Cookies et données de sites »). Vous serez alors déconnecté et le site oubliera vos messages envoyés et vos « j'aime » sur cet appareil. Se déconnecter depuis « Mon compte » supprime aussi le jeton de session.</p>
+<h2 id="futur">5. Si cela change</h2>
+<p>Si un jour le site ajoutait un outil qui nécessite votre accord (mesure d'audience, contenu intégré, publicité), un bandeau vous permettrait de l'accepter ou de le refuser <em>avant</em> tout dépôt, et cette page serait mise à jour.</p>
+
+</article>
+</main>
+<footer><p>© Escales en couleurs · <a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions d'utilisation</a> · <a href="/cookies">Cookies</a></p></footer>
+</body>
+</html>
