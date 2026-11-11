@@ -587,11 +587,17 @@
   .share-btn:hover{transform:translateY(-1px);border-color:var(--gold);}
   .share-btn .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
+  .terms-opt{display:flex;gap:10px;align-items:flex-start;margin:4px 0 14px;font-size:13.5px;line-height:1.5;color:var(--ink-soft);cursor:pointer;}
+  .terms-opt input{width:18px;height:18px;margin:2px 0 0;flex-shrink:0;accent-color:var(--stamp);}
+  .terms-opt a{color:var(--stamp);}
+
   footer{
     text-align:center;padding:30px 0 40px;color:var(--ink-soft);font-size:12.5px;
     border-top:1px solid var(--line);margin-top:20px;
   }
   footer p{margin:4px 0;}
+  .footer-links a{color:var(--ink-soft);font-size:12.5px;text-decoration:underline;text-underline-offset:2px;}
+  .footer-links a:hover{color:var(--stamp);}
   .footer-links .btn-icon{font-size:12.5px;padding:0 4px;color:var(--ink-soft);text-decoration:underline;}
   .footer-links .btn-icon:hover{color:var(--stamp);}
 
