@@ -15,6 +15,22 @@
     {
       "source": "/admin-stats/",
       "destination": "/index.html"
+    },
+    {
+      "source": "/mentions-legales",
+      "destination": "/mentions-legales.html"
+    },
+    {
+      "source": "/confidentialite",
+      "destination": "/confidentialite.html"
+    },
+    {
+      "source": "/conditions",
+      "destination": "/conditions.html"
+    },
+    {
+      "source": "/cookies",
+      "destination": "/cookies.html"
     }
   ],
   "headers": [
