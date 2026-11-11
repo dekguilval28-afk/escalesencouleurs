@@ -375,11 +375,7 @@
 <footer>
   <p>© <span id="footerYear">2026</span> Escales en couleurs</p>
   <p class="footer-main"><span class="fm-label">Notre site principal : </span><a href="https://escalesencouleurs.com" target="_blank" rel="noopener">escalesencouleurs.com</a></p>
-  <p class="footer-links">
-    <button type="button" class="btn-icon" id="openLegal">Mentions légales</button>
-    ·
-    <button type="button" class="btn-icon" id="openPrivacy">Confidentialité</button>
-  </p>
+  <p class="footer-links"><a href="/mentions-legales">Mentions légales</a> · <a href="/confidentialite">Confidentialité</a> · <a href="/conditions">Conditions d'utilisation</a> · <a href="/cookies">Cookies</a></p>
 </footer>
 
 <!-- Partager mon carnet de voyage -->
@@ -455,7 +451,7 @@
           <li>Zéro publicité : L'écran n'affiche que vos paysages et vos textes.</li>
           <li>Respect de la vie privée : Pas de cookies publicitaires, stockage sécurisé en Europe.</li>
         </ol>
-        <p>Ce site est édité à titre personnel, dans le cadre d'un usage familial et non commercial.</p>
+        <p>Ce site est un projet personnel, à but non commercial et sans publicité.</p>
       </div>
     </div>
 
@@ -482,61 +478,6 @@
 
     <div class="modal-actions">
       <button type="button" class="btn btn-ghost" id="guideUltimeClose">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- Mentions légales -->
-<div class="overlay" id="legalOverlay">
-  <div class="modal legal-modal">
-    <h2>Mentions légales</h2>
-    <div class="legal-text">
-      <h3>Édition du site</h3>
-      <p>Ce site est un projet personnel, à but non commercial et sans publicité, édité par son créateur.<br>
-      Pour toute demande, écrivez-nous directement via la bulle de messagerie 💬 en bas à droite de l'écran.</p>
-
-      <h3>Hébergement</h3>
-      <p>Le site est hébergé par Vercel Inc. (États-Unis).<br>
-      La base de données et les comptes sont gérés par Supabase Inc.</p>
-
-      <h3>Propriété du contenu</h3>
-      <p>Les textes, photos et souvenirs publiés par les membres restent la propriété de leurs auteurs respectifs. Toute reproduction sans autorisation est interdite.</p>
-
-      <h3>Responsabilité</h3>
-      <p>Ce site est un projet personnel, proposé "en l'état", sans garantie de disponibilité continue.</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" id="legalClose">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- Confidentialité -->
-<div class="overlay" id="privacyOverlay">
-  <div class="modal legal-modal">
-    <h2>Politique de confidentialité</h2>
-    <div class="legal-text">
-      <h3>Données collectées</h3>
-      <p>Lors de la création d'un compte : un pseudo et une adresse email.<br>
-      Lors de l'ajout d'une étape : les informations et photos que vous choisissez de publier.<br>
-      Lors de l'envoi d'un message : le nom, message et coordonnées que vous indiquez (facultatifs, sauf le message).</p>
-      <p>Votre pseudo permet de retrouver les étapes que vous choisissez de rendre publiques (case « Autoriser la recherche par pseudo », décochée par défaut) : toute personne qui connaît votre pseudo peut alors les consulter, sans compte. Si vous créez un lien de partage, toute personne qui le possède peut consulter votre carnet en lecture seule ; vous pouvez le désactiver à tout moment.</p>
-
-      <h3>Utilisation</h3>
-      <p>Ces données servent uniquement au fonctionnement du site : afficher votre pseudo, vous permettre de vous reconnecter, transmettre les messages envoyés via la bulle de contact, et permettre à vos proches de retrouver les étapes que vous rendez publiques.</p>
-
-      <h3>Stockage et prestataires</h3>
-      <p>Les données sont stockées de façon sécurisée chez Supabase (Irlande, UE). Les mots de passe ne sont jamais stockés en clair.<br>
-      Le site est hébergé par Vercel (États-Unis). Les e-mails (connexion, messages) sont envoyés via Resend.</p>
-
-      <h3>Responsable du site et vos droits</h3>
-      <p>Le responsable de ces données est le créateur du site. Vous pouvez à tout moment supprimer votre compte et vos données depuis "Mon compte" sur le site. Pour toute autre demande (accès, rectification, suppression), écrivez-nous directement via la bulle de messagerie 💬 en bas à droite de l'écran.</p>
-
-      <h3>Cookies</h3>
-      <p>Ce site utilise uniquement le stockage nécessaire à votre connexion (aucun cookie publicitaire ou de suivi).</p>
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-ghost" id="privacyClose">Fermer</button>
     </div>
   </div>
 </div>
@@ -624,6 +565,10 @@
         <label for="authPassword">Mot de passe</label>
         <input type="password" id="authPassword" required minlength="6" autocomplete="current-password">
       </div>
+      <label class="terms-opt" id="authTermsField" for="authTerms" style="display:none;">
+        <input type="checkbox" id="authTerms">
+        <span>J'ai 15 ans ou plus (ou l'accord d'un parent) et j'accepte les <a href="/conditions" target="_blank" rel="noopener">conditions d'utilisation</a> et la <a href="/confidentialite" target="_blank" rel="noopener">politique de confidentialité</a>.</span>
+      </label>
       <p id="authError" style="color:var(--stamp);font-size:13.5px;display:none;"></p>
       <button type="button" class="btn-icon" id="authForgotPassword" style="font-size:12.5px;padding:0 0 10px;display:block;">Mot de passe oublié ?</button>
       <div class="modal-actions" style="justify-content:space-between;align-items:center;">
