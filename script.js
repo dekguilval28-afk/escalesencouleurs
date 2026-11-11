@@ -286,6 +286,7 @@ function openAuthModal(){
   document.getElementById('authSubmit').textContent = authMode === 'login' ? "Se connecter" : "Créer le compte";
   document.getElementById('authToggleMode').textContent = authMode === 'login' ? "Créer un compte" : "J'ai déjà un compte";
   document.getElementById('authPseudoField').style.display = authMode === 'signup' ? 'block' : 'none';
+  document.getElementById('authTermsField').style.display = authMode === 'signup' ? 'block' : 'none';
   document.getElementById('authPseudo').required = authMode === 'signup';
   document.getElementById('authForgotPassword').style.display = authMode === 'login' ? 'block' : 'none';
   document.getElementById('authError').style.display = 'none';
@@ -315,10 +316,11 @@ document.getElementById('authForm').addEventListener('submit', async (e)=>{
   submitBtn.disabled = true;
   try{
     if(authMode === 'signup'){
+      if(!document.getElementById('authTerms').checked) throw new Error("Merci d'accepter les conditions d'utilisation pour créer un compte.");
       if(pseudo.length < 2) throw new Error("Choisis un pseudo d'au moins 2 caractères.");
       const chk = await sb.rpc('pseudo_available', { p_pseudo: pseudo });
       if(!chk.error && chk.data === false) throw new Error("Ce pseudo est déjà pris. Choisis-en un autre.");
-      const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo }, emailRedirectTo: SITE_URL + '/' } });
+      const { data, error } = await sb.auth.signUp({ email, password, options:{ data:{ pseudo, terms_accepted_at: new Date().toISOString(), terms_version: '2026-11-07' }, emailRedirectTo: SITE_URL + '/' } });
       if(error) throw error;
       if(!data.session){
         errEl.textContent = "Compte créé. Essaie de te connecter.";
@@ -873,9 +875,11 @@ async function persistTrip(trip){
 }
 
 async function deleteTripById(id){
+  const oldPhotos = ((trips.find(t => t.id === id) || {}).photos) || [];
   if(storageMode === "supabase"){
     const { error } = await sb.from('trips').delete().eq('id', id);
     if(error) toast("Impossible de supprimer.");
+    await purgeRemovedPhotos(oldPhotos);
     await loadSupabaseTrips();
   } else if(storageMode === "db" && dbApi){
     await dbApi.doc("trips/" + id).delete();
@@ -1427,6 +1431,7 @@ form.addEventListener('submit', async (e)=>{
         likes: old ? old.likes : 0, createdAt: Date.now()
       };
       await persistTrip(trip);
+      { const keep = new Set(photos.map(p => photoUrl(p))); await purgeRemovedPhotos(((old && old.photos) || []).filter(p => !keep.has(photoUrl(p)))); }
       toast("Étape mise à jour");
     } else {
       // Nouvelle étape : une carte par pays sélectionné, mêmes dates/récit/photos
@@ -1873,8 +1878,18 @@ function storagePathFromUrl(url){
 }
 async function removeStoredFile(photo){
   if(storageMode !== 'supabase') return;
-  const path = storagePathFromUrl(photoUrl(photo));
-  if(path){ try{ await sb.storage.from('trip-photos').remove([path]); }catch(e){} }
+  const url = photoUrl(photo);
+  const path = storagePathFromUrl(url);
+  if(!path) return;
+  try{
+    // la même photo peut servir à plusieurs cartes (voyage multi-pays) : on n'efface le fichier que s'il n'est plus utilisé nulle part
+    const { data, error } = await sb.from('trips').select('id').contains('photos', [{ url }]).limit(1);
+    if(error || (data && data.length)) return;
+    await sb.storage.from('trip-photos').remove([path]);
+  }catch(e){}
+}
+async function purgeRemovedPhotos(list){
+  for(const ph of (list || [])) await removeStoredFile(ph);
 }
 // Enregistre UNIQUEMENT la liste de photos, et seulement sur une étape qui appartient à l'utilisateur connecté.
 async function savePhotosOnly(trip, newPhotos){
@@ -1941,16 +1956,6 @@ document.getElementById('replacePhotoInput').addEventListener('change', async e 
 });
 
 document.getElementById('footerYear').textContent = new Date().getFullYear();
-document.getElementById('openLegal').onclick = ()=>document.getElementById('legalOverlay').classList.add('open');
-document.getElementById('legalClose').onclick = ()=>document.getElementById('legalOverlay').classList.remove('open');
-document.getElementById('legalOverlay').addEventListener('click', e=>{
-  if(e.target.id === 'legalOverlay') document.getElementById('legalOverlay').classList.remove('open');
-});
-document.getElementById('openPrivacy').onclick = ()=>document.getElementById('privacyOverlay').classList.add('open');
-document.getElementById('privacyClose').onclick = ()=>document.getElementById('privacyOverlay').classList.remove('open');
-document.getElementById('privacyOverlay').addEventListener('click', e=>{
-  if(e.target.id === 'privacyOverlay') document.getElementById('privacyOverlay').classList.remove('open');
-});
 
 if(ADMIN_VIEW){
   initAdminStats();
